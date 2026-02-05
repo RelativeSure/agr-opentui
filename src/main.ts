@@ -3,15 +3,15 @@ import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs
 import { join } from "node:path";
 
 const colors = {
-  background: "#0b1020",
-  panel: "#111a2b",
-  panelAlt: "#0f1526",
-  accent: "#2dd4bf",
-  warn: "#f59e0b",
-  text: "#f8fafc",
-  dim: "#94a3b8",
-  border: "#2f3b52",
-  highlight: "#60a5fa",
+  background: "#0d111a",
+  panel: "#131a28",
+  panelAlt: "#101624",
+  accent: "#4fd1c5",
+  warn: "#f6ad55",
+  text: "#e5e7eb",
+  dim: "#9aa4b2",
+  border: "#2a3346",
+  highlight: "#a5c9ff",
 };
 
 function logEvent(message: string): void {
@@ -22,6 +22,14 @@ function logEvent(message: string): void {
     // ignore logging failures
   }
 }
+
+process.on("uncaughtException", (error) => {
+  logEvent(`Uncaught exception: ${error instanceof Error ? error.stack ?? error.message : String(error)}`);
+});
+
+process.on("unhandledRejection", (reason) => {
+  logEvent(`Unhandled rejection: ${reason instanceof Error ? reason.stack ?? reason.message : String(reason)}`);
+});
 
 type Dependency = {
   identifier: string;
@@ -95,6 +103,7 @@ type State = {
   updateAvailable: boolean;
   updateCheckedAt: string | null;
   updateCommit: string | null;
+  updateLastRequestedAt: number | null;
   confirmUpdateOpen: boolean;
   updateInProgress: boolean;
   skillLabelCache: Record<string, string>;
@@ -110,7 +119,7 @@ type State = {
   runTestOpen: boolean;
 };
 
-const tabs = ["Skills", "Discover", "Updates"];
+const tabs = ["Skills", "Discover"];
 const DEFAULT_SKILLS_SOURCE: SkillsSource = {
   format: "skills-json",
 };
@@ -145,6 +154,7 @@ const state: State = {
   updateAvailable: false,
   updateCheckedAt: null,
   updateCommit: null,
+  updateLastRequestedAt: null,
   confirmUpdateOpen: false,
   updateInProgress: false,
   skillLabelCache: {},
@@ -183,13 +193,17 @@ const header = new BoxRenderable(renderer, {
   backgroundColor: colors.panelAlt,
 });
 const headerTitle = new TextRenderable(renderer, {
-  content: "AGR OpenTUI",
+  content: "AGR OPENTUI",
   fg: colors.highlight,
 });
-const headerTabs = new TextRenderable(renderer, {
-  content: "",
-  fg: colors.dim,
+const headerTabsBox = new BoxRenderable(renderer, {
+  flexDirection: "row",
+  gap: 1,
 });
+const headerTabLabels: TextRenderable[] = [];
+for (let i = 0; i < tabs.length; i += 1) {
+  headerTabLabels.push(new TextRenderable(renderer, { content: "", fg: colors.dim }));
+}
 const headerCwd = new TextRenderable(renderer, {
   content: "",
   fg: colors.dim,
@@ -211,8 +225,9 @@ const leftPanel = new BoxRenderable(renderer, {
   backgroundColor: colors.panel,
 });
 
+const leftTitle = new TextRenderable(renderer, { content: "Skills", fg: colors.highlight });
 const listLines: TextRenderable[] = [];
-const listRows = 18;
+const listRows = 17;
 for (let i = 0; i < listRows; i += 1) {
   const line = new TextRenderable(renderer, { content: "", fg: colors.text });
   listLines.push(line);
@@ -226,7 +241,7 @@ const centerPanel = new BoxRenderable(renderer, {
   padding: 1,
   backgroundColor: colors.panelAlt,
 });
-const centerTitle = new TextRenderable(renderer, { content: "Details", fg: colors.highlight });
+const centerTitle = new TextRenderable(renderer, { content: "DETAILS", fg: colors.highlight });
 const detailLines: TextRenderable[] = [];
 for (let i = 0; i < 12; i += 1) {
   detailLines.push(new TextRenderable(renderer, { content: "", fg: colors.text }));
@@ -240,7 +255,7 @@ const rightPanel = new BoxRenderable(renderer, {
   padding: 1,
   backgroundColor: colors.panel,
 });
-const rightTitle = new TextRenderable(renderer, { content: "Actions:", fg: colors.highlight });
+const rightTitle = new TextRenderable(renderer, { content: "ACTIONS", fg: colors.highlight });
 const actionLines: TextRenderable[] = [];
 for (let i = 0; i < 12; i += 1) {
   actionLines.push(new TextRenderable(renderer, { content: "", fg: colors.text }));
@@ -358,16 +373,17 @@ const previewOverlay = new BoxRenderable(renderer, {
 });
 const previewModal = new BoxRenderable(renderer, {
   width: 76,
-  height: 14,
+  height: 18,
   padding: 1,
   borderStyle: "double",
   borderColor: colors.highlight,
   backgroundColor: colors.panelAlt,
 });
 const previewTitle = new TextRenderable(renderer, { content: "SKILL.md", fg: colors.highlight });
+const PREVIEW_LINES = 13;
 const previewText = new TextareaRenderable(renderer, {
   width: 72,
-  height: 9,
+  height: PREVIEW_LINES,
   initialValue: "",
   wrapMode: "word",
   showCursor: false,
@@ -376,7 +392,7 @@ const previewText = new TextareaRenderable(renderer, {
   textColor: colors.text,
 });
 previewText.blur();
-const previewHint = new TextRenderable(renderer, { content: "[/]: scroll, Esc: close", fg: colors.dim });
+const previewHint = new TextRenderable(renderer, { content: "Esc/q: close  PgUp/PgDn: scroll", fg: colors.dim });
 previewModal.add(previewTitle);
 previewModal.add(previewText);
 previewModal.add(previewHint);
@@ -542,8 +558,12 @@ const footerStatus = new TextRenderable(renderer, { content: "", fg: colors.text
 const footerHint = new TextRenderable(renderer, { content: "", fg: colors.dim });
 
 header.add(headerTitle);
-header.add(headerTabs);
+for (const tab of headerTabLabels) {
+  headerTabsBox.add(tab);
+}
+header.add(headerTabsBox);
 header.add(headerCwd);
+leftPanel.add(leftTitle);
 for (const line of listLines) {
   leftPanel.add(line);
 }
@@ -579,21 +599,27 @@ function getActiveTab(): string {
 }
 
 function renderTabs(): void {
-  const tabText = tabs
-    .map((tab, idx) => {
-      let label = tab;
-      if (tab === "Updates") {
-        if (state.updateError) {
-          label = "Updates!";
-        } else if (state.updateAvailable) {
-          label = "Updates*";
-        }
+  for (let i = 0; i < tabs.length; i += 1) {
+    const tab = tabs[i];
+    let label = tab;
+    if (tab === "Skills") {
+      if (state.updateError) {
+        label = "Skills!";
+      } else if (state.updateAvailable) {
+        label = "Skills*";
       }
-      return idx === state.tabIndex ? `[${label}]` : ` ${label} `;
-    })
-    .join("  ");
-  headerTabs.content = tabText;
-  headerTabs.fg = colors.dim;
+    }
+    headerTabLabels[i].content = i === state.tabIndex ? `>${label}<` : ` ${label} `;
+    if (i === state.tabIndex) {
+      headerTabLabels[i].fg = colors.highlight;
+    } else if (tab === "Skills" && state.updateError) {
+      headerTabLabels[i].fg = colors.warn;
+    } else if (tab === "Skills" && state.updateAvailable) {
+      headerTabLabels[i].fg = colors.accent;
+    } else {
+      headerTabLabels[i].fg = colors.dim;
+    }
+  }
   headerCwd.content = `cwd: ${process.cwd()}`;
   headerCwd.fg = colors.dim;
 }
@@ -1277,6 +1303,14 @@ async function checkUpdates(): Promise<void> {
     renderDetails();
     return;
   }
+  const now = Date.now();
+  const cooldownMs = 5 * 60 * 1000;
+  if (state.updateLastRequestedAt && now - state.updateLastRequestedAt < cooldownMs) {
+    const remaining = Math.ceil((cooldownMs - (now - state.updateLastRequestedAt)) / 1000);
+    setStatus(`Update check rate-limited (${remaining}s)`, { clearAfterMs: 2500 });
+    return;
+  }
+  state.updateLastRequestedAt = now;
   state.updateInProgress = true;
   logEvent(`Update check started: ${rawUrl}`);
   setStatus("Checking for skill updates...");
@@ -1424,9 +1458,6 @@ function getVisibleItems(): Array<Dependency | PredefinedSkill> {
   if (getActiveTab() === "Discover") {
     return filterInstalledPredefined(getPredefinedSkills());
   }
-  if (getActiveTab() === "Updates") {
-    return getUpdateSkills();
-  }
   return getDependencies();
 }
 
@@ -1445,7 +1476,7 @@ function clampSelection(): void {
 }
 
 function selectedDependency(): Dependency | null {
-  if (getActiveTab() === "Discover" || getActiveTab() === "Updates") {
+  if (getActiveTab() === "Discover") {
     return null;
   }
   const visible = getVisibleItems() as Dependency[];
@@ -1466,16 +1497,6 @@ function selectedPredefined(): PredefinedSkill | null {
   return visible[state.selectedIndex] ?? null;
 }
 
-function selectedUpdate(): PredefinedSkill | null {
-  if (getActiveTab() !== "Updates") {
-    return null;
-  }
-  const visible = getVisibleItems() as PredefinedSkill[];
-  if (visible.length === 0) {
-    return null;
-  }
-  return visible[state.selectedIndex] ?? null;
-}
 
 function isSelected(dep: Dependency): boolean {
   return state.selectedIds.has(dep.identifier);
@@ -1485,6 +1506,7 @@ function renderList(): void {
   const tab = getActiveTab();
   const visible = getVisibleItems();
   clampSelection();
+  leftTitle.content = tab === "Discover" ? "Discover" : tab.toUpperCase();
   let nameCounts: Record<string, number> | null = null;
   if (tab === "Discover") {
     nameCounts = {};
@@ -1497,56 +1519,31 @@ function renderList(): void {
   for (let i = 0; i < listLines.length; i += 1) {
     const item = visible[i];
     if (!item) {
-      if (i === 0 && tab === "Updates") {
-        if (state.updateError) {
-          listLines[i].content = "Update check failed.";
-          listLines[i].fg = colors.warn;
-        } else if (!state.updateCheckedAt) {
-          listLines[i].content = "Press u to check updates.";
-          listLines[i].fg = colors.dim;
-        } else if (!state.updateAvailable) {
-          listLines[i].content = "No updates available.";
-          listLines[i].fg = colors.dim;
-        } else {
-          if (state.updateCandidates.length === 0 && state.updateRemoved.length > 0) {
-            listLines[i].content = "Updates available (removals only).";
-            listLines[i].fg = colors.highlight;
-          } else {
-            listLines[i].content = "Updates available below.";
-            listLines[i].fg = colors.highlight;
-          }
-        }
-      } else {
-        listLines[i].content = "";
-      }
+      listLines[i].content = "";
       continue;
     }
     const marker = i === state.selectedIndex ? ">" : " ";
-    if (tab === "Discover" || tab === "Updates") {
+    if (tab === "Discover") {
       const skill = item as PredefinedSkill;
       void resolveSkillLabel(skill);
       const displayLabel = getSkillDisplayLabel(skill);
-      if (tab === "Discover") {
-        const count = nameCounts?.[displayLabel] ?? 0;
-        if (count > 1) {
-          listLines[i].content = `${marker} ${displayLabel} - ${getSkillSourceLabel(skill)}`;
-        } else {
-          listLines[i].content = `${marker} ${displayLabel}`;
-        }
+      const count = nameCounts?.[displayLabel] ?? 0;
+      if (count > 1) {
+        listLines[i].content = `${marker} ${displayLabel} - ${getSkillSourceLabel(skill)}`;
       } else {
         listLines[i].content = `${marker} ${displayLabel}`;
       }
-      if (tab === "Updates") {
-        listLines[i].fg = state.updateError ? colors.warn : colors.accent;
-      } else {
-        listLines[i].fg = colors.text;
-      }
+      listLines[i].fg = i === state.selectedIndex ? colors.highlight : colors.text;
     } else {
       const dep = item as Dependency;
       const status = dep.installed ? "*" : " ";
       const multi = isSelected(dep) ? "+" : " ";
       listLines[i].content = `${marker}${multi} [${status}] ${dep.identifier}`;
-      listLines[i].fg = dep.installed ? colors.accent : colors.text;
+      if (i === state.selectedIndex) {
+        listLines[i].fg = colors.highlight;
+      } else {
+        listLines[i].fg = dep.installed ? colors.accent : colors.text;
+      }
     }
   }
 }
@@ -1554,48 +1551,9 @@ function renderList(): void {
 function renderDetails(): void {
   const dep = selectedDependency();
   const predefined = selectedPredefined();
-  const update = selectedUpdate();
   const tab = getActiveTab();
   const lines: string[] = [];
-  if (tab === "Updates") {
-    if (state.updateError) {
-      lines.push(`Update error: ${state.updateError}`);
-      lines.push("Edit skills.json source to fix.");
-      if (state.predefined.length > 0) {
-        lines.push("Using cached skills.json list.");
-      }
-    } else if (!state.updateCheckedAt) {
-      lines.push("Press u to check for updates.");
-      lines.push("Updates compare skills.json with the remote list.");
-    } else if (!state.updateAvailable) {
-      lines.push("No updates available.");
-      lines.push(`Last checked: ${state.updateCheckedAt}`);
-    } else {
-      const addedCount = state.updateCandidates.length;
-      const removedCount = state.updateRemoved.length;
-      lines.push("Update available.");
-      lines.push(`Added: ${addedCount} | Removed: ${removedCount}`);
-      if (state.updateCommit) {
-        lines.push(`Remote commit: ${state.updateCommit.slice(0, 8)}`);
-      }
-      if (update) {
-        lines.push("");
-        lines.push(`Selected: ${getSkillDisplayLabel(update)}`);
-        lines.push(`Source: ${getSkillSourceLabel(update)}`);
-        lines.push(`Handle: ${update.handle}`);
-        if (update.repo) {
-          lines.push(`Repo: ${update.repo}`);
-        }
-      }
-      if (removedCount > 0) {
-        lines.push("");
-        lines.push("Removed skills:");
-        lines.push(...state.updateRemoved.slice(0, 4).map((skill) => `- ${skill.handle}`));
-      }
-      lines.push("");
-      lines.push("Press U to update skills.json.");
-    }
-  } else if (tab === "Discover") {
+  if (tab === "Discover") {
     if (state.predefinedError) {
       lines.push(`Discover list error: ${state.predefinedError}`);
       lines.push("Edit skills.json to fix.");
@@ -1644,25 +1602,7 @@ function renderDetails(): void {
       lines.push("Skills shows skills in agr.toml + install state.");
     }
 
-    if (tab !== "Discover" && tab !== "Updates" && dep && state.data?.installed) {
-      const toolLines: string[] = [];
-      const candidatesByTool = dep.candidates_by_tool ?? {};
-      for (const toolName of state.data.tools) {
-        const installed = state.data.installed[toolName] ?? [];
-        const candidates = candidatesByTool[toolName] ?? [];
-        const match = candidates.find((name) => installed.includes(name));
-        if (match) {
-          toolLines.push(`${toolName}: ${match}`);
-        } else {
-          toolLines.push(`${toolName}: not installed`);
-        }
-      }
-      if (toolLines.length > 0) {
-        lines.push("");
-        lines.push("Install paths:");
-        lines.push(...toolLines.slice(0, 5));
-      }
-    }
+    // removed install paths detail block
   }
 
   for (let i = 0; i < detailLines.length; i += 1) {
@@ -1692,52 +1632,41 @@ function renderDetails(): void {
 
 function renderActions(): void {
   const tab = getActiveTab();
-  const toolName = state.data?.tools[state.toolIndex] ?? "";
   const lines: string[] = [];
-  lines.push("i: install");
-  lines.push("r: remove");
-  lines.push("space: toggle select");
-  lines.push("v: show SKILL");
-  lines.push("g: run");
-  lines.push("G: run options");
-  lines.push("a: add skill");
-  lines.push("T: test popup");
-  lines.push("c: reload config");
-  lines.push("H: help");
-  lines.push("Tab: next panel");
-  lines.push("Arrow keys: move");
-  lines.push("q: quit");
-
-  if (tab === "Discover") {
-    lines.push("i: add selected");
-  } else if (tab === "Updates") {
+  if (tab === "Skills") {
+    lines.push("space: toggle select");
+    lines.push("v: show SKILL");
+    lines.push("g: run");
+    lines.push("G: run options");
     lines.push("u: check updates");
     lines.push("U: apply update (no confirm)");
     lines.push("s: apply (confirm)");
     lines.push("S: apply + sync (no confirm)");
-  }
-  if (tab === "Discover" || tab === "Updates") {
+    lines.push("a: add skill");
+    lines.push("T: test popup");
+    lines.push("c: reload config");
+    lines.push("H: help");
+    lines.push("Tab: next panel");
+    lines.push("Arrow keys: move");
+    lines.push("q: quit");
+  } else if (tab === "Discover") {
+    lines.push("i: add selected");
     lines.push("y: copy handle/repo");
+    lines.push("space: toggle select");
+    lines.push("a: add skill");
+    lines.push("T: test popup");
+    lines.push("c: reload config");
+    lines.push("H: help");
+    lines.push("Tab: next panel");
+    lines.push("Arrow keys: move");
+    lines.push("q: quit");
   }
-  lines.push("[/]: preview scroll");
-
-  if (state.inputMode !== "none") {
-    lines.push("");
-    lines.push(`Input: ${state.inputBuffer}`);
-    lines.push("Enter: submit");
-    lines.push("Esc: cancel");
-  }
+  // removed preview scroll hint (arrow keys in preview)
 
   for (let i = 0; i < actionLines.length; i += 1) {
     const content = lines[i] ?? "";
     actionLines[i].content = content;
-    if (!content) {
-      actionLines[i].fg = colors.text;
-    } else if (content.endsWith(":")) {
-      actionLines[i].fg = colors.highlight;
-    } else {
-      actionLines[i].fg = colors.text;
-    }
+    actionLines[i].fg = colors.text;
   }
 
 }
@@ -1746,7 +1675,11 @@ function renderFooter(): void {
   if (rendererDestroyed || (footerStatus as any).isDestroyed || (footerHint as any).isDestroyed) {
     return;
   }
-  footerStatus.content = state.updateInProgress ? "Loading discover list..." : state.status;
+  let status = state.updateInProgress ? "Loading discover list..." : state.status;
+  if (state.updateCheckedAt) {
+    status = `${status}  |  Last check: ${formatTimestampShort(state.updateCheckedAt)}`;
+  }
+  footerStatus.content = status;
   const hints: string[] = [];
   if (state.confirmUpdateOpen) {
     hints.push("Update pending: y apply, s apply+sync, n/Esc cancel");
@@ -1800,13 +1733,6 @@ function renderHelp(): void {
     lines.push("Discover lists skills from skills.json.");
     lines.push("Select one and press i to add it.");
     lines.push("Edit skills.json to change the source.");
-  } else if (tab === "Updates") {
-    lines.push("Updates checks for changes to skills.json.");
-    lines.push("Press u to check the remote list.");
-    lines.push("Press U to apply updates immediately.");
-    lines.push("Press s to review before applying.");
-    lines.push("Press S to apply updates and run agr sync.");
-    lines.push("Press y to copy handle/repo.");
   }
   while (lines.length < helpLines.length) {
     lines.push("");
@@ -1826,7 +1752,7 @@ function renderPreviewModal(): void {
   previewTitle.content = dep ? `SKILL.md: ${dep.identifier}` : "SKILL.md";
   const lines = state.previewAll.length > 0 ? state.previewAll : ["No SKILL.md found."];
   const start = state.previewOffset;
-  const slice = lines.slice(start, start + 9);
+  const slice = lines.slice(start, start + PREVIEW_LINES);
   previewText.setText(slice.join("\n"));
 }
 
@@ -2058,6 +1984,11 @@ async function loadData(): Promise<void> {
         } else {
           setStatus("Discover list up to date", { clearAfterMs: 2500 });
         }
+      } else if (!state.updateCheckedAt) {
+        // Lazy update check on startup even if cached.
+        setTimeout(() => {
+          void checkUpdates();
+        }, 0);
       }
     }
     const configPath = join(process.cwd(), "agr.toml");
@@ -2307,9 +2238,9 @@ function scrollPreview(delta: number): void {
   if (state.previewAll.length === 0) {
     return;
   }
-  const maxOffset = Math.max(0, state.previewAll.length - 8);
+  const maxOffset = Math.max(0, state.previewAll.length - PREVIEW_LINES);
   state.previewOffset = Math.max(0, Math.min(maxOffset, state.previewOffset + delta));
-  renderDetails();
+  renderPreviewModal();
 }
 
 function parseArgs(input: string): string[] {
@@ -2376,6 +2307,13 @@ function wrapText(text: string, width: number): string[] {
     lines.push(current);
   }
   return lines.length > 0 ? lines : [text];
+}
+
+function padRight(text: string, width: number): string {
+  if (text.length >= width) {
+    return text;
+  }
+  return text + " ".repeat(width - text.length);
 }
 
 function openVerify(message: string, details: string[] = []): void {
@@ -2594,6 +2532,36 @@ function handleKey(sequence: string): boolean {
     }
     return true;
   }
+  if (state.previewOpen) {
+    if (sequence === "\x1b") {
+      state.previewOpen = false;
+      renderPreviewModal();
+      renderFooter();
+      return true;
+    }
+    if (sequence === "q" || sequence === "\x1b[O") {
+      state.previewOpen = false;
+      renderPreviewModal();
+      renderFooter();
+      return true;
+    }
+    if (sequence === "\x1b[A") {
+      scrollPreview(-1);
+      return true;
+    }
+    if (sequence === "\x1b[B") {
+      scrollPreview(1);
+      return true;
+    }
+    if (sequence === "\x1b[5~") {
+      scrollPreview(-PREVIEW_LINES);
+      return true;
+    }
+    if (sequence === "\x1b[6~") {
+      scrollPreview(PREVIEW_LINES);
+      return true;
+    }
+  }
   if (state.verifyOpen) {
     if (sequence === "\x1b") {
       state.verifyOpen = false;
@@ -2655,11 +2623,6 @@ function handleKey(sequence: string): boolean {
       state.previewOpen = false;
       renderPreviewModal();
       renderFooter();
-      return true;
-    }
-    if (sequence === "[" || sequence === "]") {
-      scrollPreview(sequence === "[" ? -1 : 1);
-      renderPreviewModal();
       return true;
     }
     return true;
@@ -2729,16 +2692,6 @@ function handleKey(sequence: string): boolean {
 
   if (sequence === "\x1b[B") {
     moveSelection(1);
-    return true;
-  }
-
-  if (sequence === "[") {
-    scrollPreview(-1);
-    return true;
-  }
-
-  if (sequence === "]") {
-    scrollPreview(1);
     return true;
   }
 
@@ -2816,8 +2769,8 @@ function handleKey(sequence: string): boolean {
     return true;
   }
 
-  if ((tab === "Discover" || tab === "Updates") && sequence === "y") {
-    const skill = tab === "Discover" ? selectedPredefined() : selectedUpdate();
+  if (tab === "Discover" && sequence === "y") {
+    const skill = selectedPredefined();
     if (skill) {
       const text = skill.repo ? `${skill.repo} (${skill.handle})` : skill.handle;
       void (async () => {
@@ -2832,24 +2785,24 @@ function handleKey(sequence: string): boolean {
     return true;
   }
 
-  if (tab === "Updates" && sequence === "u") {
+  if (tab === "Skills" && sequence === "u") {
     void checkUpdates();
     return true;
   }
 
-  if (tab === "Updates" && sequence === "U") {
+  if (tab === "Skills" && sequence === "U") {
     if (state.updateAvailable) {
       void applyUpdates();
     }
     return true;
   }
-  if (tab === "Updates" && sequence === "S") {
+  if (tab === "Skills" && sequence === "S") {
     if (state.updateAvailable) {
       void applyUpdatesAndSync();
     }
     return true;
   }
-  if (tab === "Updates" && sequence === "s") {
+  if (tab === "Skills" && sequence === "s") {
     if (state.updateAvailable) {
       state.confirmUpdateOpen = true;
       renderUpdateConfirm();

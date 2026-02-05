@@ -1,0 +1,62 @@
+name: build-bin
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    env:
+      BASE_NAME: agr-opentui
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: '1.3.8'
+
+      - name: Install deps
+        run: bun install
+
+      - name: Build binary
+        run: make build
+
+      - name: Compute artifact name
+        id: name
+        shell: bash
+        run: |
+          ref="${GITHUB_REF#refs/heads/}"
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            tag="${GITHUB_REF#refs/tags/}"
+            safe_tag="${tag//_/\\-}"
+            safe_tag="${safe_tag//\\//-}"
+            name="${BASE_NAME}-tag-${safe_tag}"
+          elif [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            name="${BASE_NAME}-pr-${GITHUB_EVENT_PULL_REQUEST_NUMBER:-${GITHUB_PR_NUMBER:-unknown}}"
+          elif [[ "${ref}" == "master" ]]; then
+            name="${BASE_NAME}"
+          else
+            safe_ref="${ref//\\//-}"
+            safe_ref="${safe_ref//_/\\-}"
+            name="${BASE_NAME}-branch-${safe_ref}"
+          fi
+          echo "name=${name}" >> "$GITHUB_OUTPUT"
+
+      - name: Rename binary
+        run: mv bin/agr-tui "bin/${{ steps.name.outputs.name }}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.name.outputs.name }}-linux
+          path: bin/${{ steps.name.outputs.name }}
+
+      - name: Upload to release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: bin/${{ steps.name.outputs.name }}

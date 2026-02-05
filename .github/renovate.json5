@@ -1,0 +1,19 @@
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":automergeMinor"
+  ],
+  timezone: "UTC",
+  schedule: ["before 6am on monday"],
+  labels: ["dependencies"],
+  rangeStrategy: "bump",
+  packageRules: [
+    {
+      matchManagers: ["npm"],
+      matchUpdateTypes: ["major"],
+      automerge: false
+    }
+  ]
+}
