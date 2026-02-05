@@ -1,0 +1,12 @@
+{
+  "name": "agr-opentui",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "bun src/main.ts",
+    "dev": "bun src/main.ts"
+  },
+  "dependencies": {
+    "@opentui/core": "^0.1.73"
+  }
+}
