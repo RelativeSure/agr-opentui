@@ -1,6 +1,6 @@
 [project]
 name = "agr-opentui"
-version = "0.1.0"
+version = "0.2.0"
 description = "OpenTUI frontend for agr"
 requires-python = ">=3.14.3"
 dependencies = [
