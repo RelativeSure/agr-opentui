@@ -1,4 +1,4 @@
-import { BoxRenderable, InputRenderable, TextRenderable, createCliRenderer } from "@opentui/core";
+import { BoxRenderable, InputRenderable, TextRenderable, TextareaRenderable, createCliRenderer } from "@opentui/core";
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -63,17 +63,15 @@ type BridgeData = {
   installed?: Record<string, string[]>;
 };
 
-type InputMode = "none" | "filter" | "add" | "prompt" | "args" | "repo";
+type InputMode = "none" | "add" | "prompt" | "args";
 
 type State = {
   tabIndex: number;
-  filter: string;
   inputMode: InputMode;
   inputBuffer: string;
   promptBuffer: string;
   argsBuffer: string;
   selectedIndex: number;
-  targetRepo: string | null;
   selectedIds: Set<string>;
   toolIndex: number;
   interactive: boolean;
@@ -83,7 +81,6 @@ type State = {
   lastExit: number | null;
   data: BridgeData | null;
   busy: boolean;
-  previewLines: string[];
   previewAll: string[];
   previewOffset: number;
   helpOpen: boolean;
@@ -103,24 +100,28 @@ type State = {
   skillLabelCache: Record<string, string>;
   skillLabelPending: Set<string>;
   installedOverrides: Set<string>;
+  previewOpen: boolean;
+  runOptionsOpen: boolean;
+  missingConfig: boolean;
+  missingConfigOpen: boolean;
+  verifyOpen: boolean;
+  verifyMessage: string;
+  verifyDetails: string[];
+  runTestOpen: boolean;
 };
 
-const tabs = ["List", "Run", "Predefined", "Updates", "Config"];
+const tabs = ["Skills", "Discover", "Updates"];
 const DEFAULT_SKILLS_SOURCE: SkillsSource = {
-  repo: "kasperjunge/agent-resources",
-  branch: "main",
-  path: "skills.json",
+  format: "skills-json",
 };
 
 const state: State = {
   tabIndex: 0,
-  filter: "",
   inputMode: "none",
   inputBuffer: "",
   promptBuffer: "",
   argsBuffer: "",
   selectedIndex: 0,
-  targetRepo: process.env.AGR_TUI_REPO ?? null,
   selectedIds: new Set<string>(),
   toolIndex: 0,
   interactive: false,
@@ -130,7 +131,6 @@ const state: State = {
   lastExit: null,
   data: null,
   busy: false,
-  previewLines: [],
   previewAll: [],
   previewOffset: 0,
   helpOpen: false,
@@ -150,6 +150,14 @@ const state: State = {
   skillLabelCache: {},
   skillLabelPending: new Set<string>(),
   installedOverrides: new Set<string>(),
+  previewOpen: false,
+  runOptionsOpen: false,
+  missingConfig: false,
+  missingConfigOpen: false,
+  verifyOpen: false,
+  verifyMessage: "",
+  verifyDetails: [],
+  runTestOpen: false,
 };
 
 const renderer = await createCliRenderer();
@@ -182,7 +190,7 @@ const headerTabs = new TextRenderable(renderer, {
   content: "",
   fg: colors.dim,
 });
-const headerRepo = new TextRenderable(renderer, {
+const headerCwd = new TextRenderable(renderer, {
   content: "",
   fg: colors.dim,
 });
@@ -202,7 +210,6 @@ const leftPanel = new BoxRenderable(renderer, {
   padding: 1,
   backgroundColor: colors.panel,
 });
-const leftTitle = new TextRenderable(renderer, { content: "Skills", fg: colors.highlight });
 
 const listLines: TextRenderable[] = [];
 const listRows = 18;
@@ -272,7 +279,7 @@ addModal.add(addHint);
 addOverlay.add(addModal);
 addOverlay.visible = false;
 
-const repoOverlay = new BoxRenderable(renderer, {
+const runOptionsOverlay = new BoxRenderable(renderer, {
   position: "absolute",
   top: 0,
   left: 0,
@@ -281,30 +288,33 @@ const repoOverlay = new BoxRenderable(renderer, {
   alignItems: "center",
   justifyContent: "center",
 });
-const repoModal = new BoxRenderable(renderer, {
-  width: 60,
-  height: 5,
+const runOptionsModal = new BoxRenderable(renderer, {
+  width: 64,
+  height: 7,
   padding: 1,
   borderStyle: "double",
   borderColor: colors.highlight,
   backgroundColor: colors.panelAlt,
 });
-const repoTitle = new TextRenderable(renderer, { content: "Set Repo Path", fg: colors.highlight });
-const repoInput = new InputRenderable(renderer, {
-  width: "100%",
-  placeholder: "/path/to/repo",
-  backgroundColor: colors.panelAlt,
-  textColor: colors.text,
-  focusedBackgroundColor: colors.panel,
-  focusedTextColor: colors.text,
-  placeholderColor: colors.dim,
+const runOptionsTitle = new TextRenderable(renderer, { content: "Run Options", fg: colors.highlight });
+const runOptionsSkill = new TextRenderable(renderer, { content: "", fg: colors.text });
+const runOptionsTool = new TextRenderable(renderer, { content: "", fg: colors.text });
+const runOptionsInteractive = new TextRenderable(renderer, { content: "", fg: colors.text });
+const runOptionsPrompt = new TextRenderable(renderer, { content: "", fg: colors.text });
+const runOptionsArgs = new TextRenderable(renderer, { content: "", fg: colors.text });
+const runOptionsHint = new TextRenderable(renderer, {
+  content: "t: tool  u: interactive  p: prompt  e: args  Enter: run  Esc: close",
+  fg: colors.dim,
 });
-const repoHint = new TextRenderable(renderer, { content: "Enter to save, Esc to cancel", fg: colors.dim });
-repoModal.add(repoTitle);
-repoModal.add(repoInput);
-repoModal.add(repoHint);
-repoOverlay.add(repoModal);
-repoOverlay.visible = false;
+runOptionsModal.add(runOptionsTitle);
+runOptionsModal.add(runOptionsSkill);
+runOptionsModal.add(runOptionsTool);
+runOptionsModal.add(runOptionsInteractive);
+runOptionsModal.add(runOptionsPrompt);
+runOptionsModal.add(runOptionsArgs);
+runOptionsModal.add(runOptionsHint);
+runOptionsOverlay.add(runOptionsModal);
+runOptionsOverlay.visible = false;
 
 const helpOverlay = new BoxRenderable(renderer, {
   position: "absolute",
@@ -336,6 +346,105 @@ for (const line of helpLines) {
 helpModal.add(helpHint);
 helpOverlay.add(helpModal);
 helpOverlay.visible = false;
+
+const previewOverlay = new BoxRenderable(renderer, {
+  position: "absolute",
+  top: 0,
+  left: 0,
+  width: "100%",
+  height: "100%",
+  alignItems: "center",
+  justifyContent: "center",
+});
+const previewModal = new BoxRenderable(renderer, {
+  width: 76,
+  height: 14,
+  padding: 1,
+  borderStyle: "double",
+  borderColor: colors.highlight,
+  backgroundColor: colors.panelAlt,
+});
+const previewTitle = new TextRenderable(renderer, { content: "SKILL.md", fg: colors.highlight });
+const previewText = new TextareaRenderable(renderer, {
+  width: 72,
+  height: 9,
+  initialValue: "",
+  wrapMode: "word",
+  showCursor: false,
+  selectable: false,
+  backgroundColor: colors.panelAlt,
+  textColor: colors.text,
+});
+previewText.blur();
+const previewHint = new TextRenderable(renderer, { content: "[/]: scroll, Esc: close", fg: colors.dim });
+previewModal.add(previewTitle);
+previewModal.add(previewText);
+previewModal.add(previewHint);
+previewOverlay.add(previewModal);
+previewOverlay.visible = false;
+
+const missingConfigOverlay = new BoxRenderable(renderer, {
+  position: "absolute",
+  top: 0,
+  left: 0,
+  width: "100%",
+  height: "100%",
+  alignItems: "center",
+  justifyContent: "center",
+});
+const missingConfigModal = new BoxRenderable(renderer, {
+  width: 72,
+  height: 7,
+  padding: 1,
+  borderStyle: "double",
+  borderColor: colors.warn,
+  backgroundColor: colors.panelAlt,
+});
+const missingConfigTitle = new TextRenderable(renderer, { content: "Missing agr.toml", fg: colors.warn });
+const missingConfigLine1 = new TextRenderable(renderer, { content: "", fg: colors.text });
+const missingConfigLine2 = new TextRenderable(renderer, { content: "", fg: colors.text });
+const missingConfigHint = new TextRenderable(renderer, { content: "Esc: close", fg: colors.dim });
+missingConfigModal.add(missingConfigTitle);
+missingConfigModal.add(missingConfigLine1);
+missingConfigModal.add(missingConfigLine2);
+missingConfigModal.add(missingConfigHint);
+missingConfigOverlay.add(missingConfigModal);
+missingConfigOverlay.visible = false;
+
+const verifyOverlay = new BoxRenderable(renderer, {
+  position: "absolute",
+  top: 0,
+  left: 0,
+  width: "100%",
+  height: "100%",
+  alignItems: "center",
+  justifyContent: "center",
+});
+const verifyModal = new BoxRenderable(renderer, {
+  width: 72,
+  height: 10,
+  padding: 1,
+  borderStyle: "double",
+  borderColor: colors.warn,
+  backgroundColor: colors.panelAlt,
+});
+const verifyTitle = new TextRenderable(renderer, { content: "Verification Warning", fg: colors.warn });
+const verifyLine = new TextRenderable(renderer, { content: "", fg: colors.text });
+const verifyLine2 = new TextRenderable(renderer, { content: "", fg: colors.text });
+const verifyListLines: TextRenderable[] = [];
+for (let i = 0; i < 3; i += 1) {
+  verifyListLines.push(new TextRenderable(renderer, { content: "", fg: colors.text }));
+}
+const verifyHint = new TextRenderable(renderer, { content: "Esc: close", fg: colors.dim });
+verifyModal.add(verifyTitle);
+verifyModal.add(verifyLine);
+verifyModal.add(verifyLine2);
+for (const line of verifyListLines) {
+  verifyModal.add(line);
+}
+verifyModal.add(verifyHint);
+verifyOverlay.add(verifyModal);
+verifyOverlay.visible = false;
 
 const updateOverlay = new BoxRenderable(renderer, {
   position: "absolute",
@@ -378,19 +487,27 @@ const runOverlay = new BoxRenderable(renderer, {
   justifyContent: "center",
 });
 const runModal = new BoxRenderable(renderer, {
-  width: 66,
-  height: 6,
+  width: 72,
+  height: 12,
   padding: 1,
   borderStyle: "double",
   borderColor: colors.accent,
   backgroundColor: colors.panelAlt,
 });
-const runTitle = new TextRenderable(renderer, { content: "Running Command", fg: colors.highlight });
-const runCmd = new TextRenderable(renderer, { content: "", fg: colors.text });
-const runHint = new TextRenderable(renderer, { content: "Please wait...", fg: colors.dim });
+const runTitle = new TextRenderable(renderer, { content: "", fg: colors.highlight });
+const runText = new TextareaRenderable(renderer, {
+  width: 68,
+  height: 8,
+  initialValue: "",
+  wrapMode: "word",
+  showCursor: false,
+  selectable: false,
+  backgroundColor: colors.panelAlt,
+  textColor: colors.text,
+});
+runText.blur();
 runModal.add(runTitle);
-runModal.add(runCmd);
-runModal.add(runHint);
+runModal.add(runText);
 runOverlay.add(runModal);
 runOverlay.visible = false;
 
@@ -426,8 +543,7 @@ const footerHint = new TextRenderable(renderer, { content: "", fg: colors.dim })
 
 header.add(headerTitle);
 header.add(headerTabs);
-header.add(headerRepo);
-leftPanel.add(leftTitle);
+header.add(headerCwd);
 for (const line of listLines) {
   leftPanel.add(line);
 }
@@ -449,8 +565,11 @@ layout.add(body);
 layout.add(footer);
 root.add(layout);
 root.add(addOverlay);
-root.add(repoOverlay);
+root.add(runOptionsOverlay);
 root.add(helpOverlay);
+root.add(previewOverlay);
+root.add(missingConfigOverlay);
+root.add(verifyOverlay);
 root.add(updateOverlay);
 root.add(runOverlay);
 root.add(toastOverlay);
@@ -475,9 +594,8 @@ function renderTabs(): void {
     .join("  ");
   headerTabs.content = tabText;
   headerTabs.fg = colors.dim;
-  const repo = state.targetRepo ?? "(repo: unset)";
-  headerRepo.content = `repo: ${repo}`;
-  headerRepo.fg = state.targetRepo ? colors.dim : colors.warn;
+  headerCwd.content = `cwd: ${process.cwd()}`;
+  headerCwd.fg = colors.dim;
 }
 
 function getDependencies(): Dependency[] {
@@ -503,6 +621,38 @@ function getInstalledHandleSet(): Set<string> {
   return set;
 }
 
+function getInstalledNameSet(): Set<string> {
+  const set = new Set<string>();
+  const data = state.data;
+  if (!data?.installed) {
+    return set;
+  }
+  const tool = data.default_tool ?? "";
+  const names = tool ? data.installed[tool] ?? [] : [];
+  for (const name of names) {
+    set.add(name.toLowerCase());
+  }
+  return set;
+}
+
+function isInstalledByName(handle: string, installedNames: Set<string>): boolean {
+  if (installedNames.size === 0) {
+    return false;
+  }
+  const variants = handleVariants(handle).map((v) => v.toLowerCase());
+  for (const variant of variants) {
+    if (installedNames.has(variant)) {
+      return true;
+    }
+    const parts = variant.split("/");
+    const last = parts[parts.length - 1];
+    if (last && installedNames.has(last)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function filterInstalledPredefined(skills: PredefinedSkill[]): PredefinedSkill[] {
   if (!state.data) {
     if (state.installedOverrides.size === 0) {
@@ -511,10 +661,20 @@ function filterInstalledPredefined(skills: PredefinedSkill[]): PredefinedSkill[]
     return skills.filter((skill) => !state.installedOverrides.has(skill.handle.toLowerCase()));
   }
   const installed = getInstalledHandleSet();
+  const installedNames = getInstalledNameSet();
   for (const handle of state.installedOverrides) {
     installed.add(handle);
   }
-  return skills.filter((skill) => !installed.has(skill.handle.toLowerCase()));
+  return skills.filter((skill) => {
+    const handle = skill.handle.toLowerCase();
+    if (installed.has(handle)) {
+      return false;
+    }
+    if (isInstalledByName(handle, installedNames)) {
+      return false;
+    }
+    return true;
+  });
 }
 
 function normalizeSkills(items: Array<string | PredefinedSkill>): PredefinedSkill[] {
@@ -665,6 +825,35 @@ function buildSkillFromHandle(handle: string): PredefinedSkill {
     skill.repo = `${parts[0]}/agent-resources`;
   }
   return skill;
+}
+
+function hasKnownHandle(handle: string): boolean {
+  const normalized = handle.trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+  const known = new Set<string>();
+  for (const skill of state.predefined) {
+    known.add(skill.handle.toLowerCase());
+  }
+  for (const skill of state.updateRemote) {
+    known.add(skill.handle.toLowerCase());
+  }
+  if (known.size === 0) {
+    return true;
+  }
+  return known.has(normalized);
+}
+
+function looksLikeHandle(input: string): boolean {
+  const trimmed = input.trim();
+  if (!trimmed) {
+    return false;
+  }
+  if (trimmed.startsWith("/") || trimmed.startsWith(".")) {
+    return false;
+  }
+  return trimmed.includes("/");
 }
 
 function getUpdateSkills(): PredefinedSkill[] {
@@ -858,6 +1047,112 @@ function getSkillSourceLabel(skill: PredefinedSkill): string {
     return `${parts[0]}/${parts[1]}`;
   }
   return "(unknown)";
+}
+
+function getSourceRepoRef(): string | null {
+  const source = state.predefinedSource;
+  if (source?.repo) {
+    return source.repo;
+  }
+  if (source?.url) {
+    const parsed = parseGitHubUrl(source.url);
+    if (parsed) {
+      return `${parsed.owner}/${parsed.repo}`;
+    }
+  }
+  return null;
+}
+
+function getSourceRepoParts(): { owner: string; repo: string } | null {
+  const ref = getSourceRepoRef();
+  if (!ref) {
+    return null;
+  }
+  const parts = ref.split("/");
+  if (parts.length < 2) {
+    return null;
+  }
+  return { owner: parts[0], repo: parts[1] };
+}
+
+function buildHandleFromSource(skillName: string): string {
+  const parts = getSourceRepoParts();
+  if (!parts) {
+    return skillName;
+  }
+  if (parts.repo === "agent-resources") {
+    return `${parts.owner}/${skillName}`;
+  }
+  return `${parts.owner}/${parts.repo}/${skillName}`;
+}
+
+function normalizeHandleForAgr(handle: string): string {
+  const trimmed = handle.trim();
+  if (!trimmed) {
+    return trimmed;
+  }
+  if (trimmed.startsWith("./")) {
+    const rest = trimmed.slice(2);
+    return normalizeRelativeHandle(rest);
+  }
+  if (trimmed.startsWith("skills/") || trimmed.startsWith(".claude/skills/")) {
+    return normalizeRelativeHandle(trimmed.replace(/^\.?claude\//, ""));
+  }
+  const segments = trimmed.split("/");
+  if (segments.length > 3) {
+    const skillName = segments[segments.length - 1];
+    if (segments[1] === "agent-resources") {
+      return `${segments[0]}/${skillName}`;
+    }
+    return `${segments[0]}/${segments[1]}/${skillName}`;
+  }
+  return trimmed;
+}
+
+function normalizeRelativeHandle(relative: string): string {
+  const cleaned = relative.replace(/^\.?\/?/, "").replace(/^skills\//, "");
+  const parts = cleaned.split("/").filter(Boolean);
+  const skillName = parts[parts.length - 1] ?? cleaned;
+  return buildHandleFromSource(skillName);
+}
+
+function handleVariants(handle: string): string[] {
+  const variants = new Set<string>();
+  const trimmed = handle.trim();
+  if (!trimmed) {
+    return [];
+  }
+  variants.add(trimmed);
+  if (trimmed.startsWith("./")) {
+    variants.add(trimmed.slice(2));
+  }
+  if (trimmed.startsWith(".claude/")) {
+    variants.add(trimmed.replace(/^\.claude\//, ""));
+  }
+  if (trimmed.startsWith("skills/")) {
+    variants.add(trimmed.replace(/^skills\//, ""));
+  }
+  const parts = trimmed.split("/");
+  if (parts.length >= 3) {
+    variants.add(parts.slice(2).join("/"));
+  }
+  if (trimmed.startsWith("skills/")) {
+    variants.add(trimmed.replace(/^skills\//, ""));
+  }
+  const lastSegment = parts[parts.length - 1];
+  const fromSource = buildHandleFromSource(lastSegment);
+  variants.add(fromSource);
+  const repo = getSourceRepoRef();
+  if (repo) {
+    for (const v of Array.from(variants)) {
+      if (!v.includes("/")) {
+        variants.add(buildHandleFromSource(v));
+      } else if (!v.startsWith(repo + "/") && !v.startsWith("http")) {
+        variants.add(`${repo}/${v}`);
+      }
+    }
+  }
+  return Array.from(variants);
 }
 
 function buildSkillMdUrls(skill: PredefinedSkill): string[] {
@@ -1125,32 +1420,14 @@ async function applyUpdatesAndSync(): Promise<void> {
   await loadData();
 }
 
-function applyFilter(deps: Dependency[]): Dependency[] {
-  if (!state.filter) {
-    return deps;
-  }
-  const needle = state.filter.toLowerCase();
-  return deps.filter((dep) => dep.identifier.toLowerCase().includes(needle));
-}
-
-function applyPredefinedFilter(skills: PredefinedSkill[]): PredefinedSkill[] {
-  if (!state.filter) {
-    return skills;
-  }
-  const needle = state.filter.toLowerCase();
-  return skills.filter(
-    (skill) => skill.label.toLowerCase().includes(needle) || skill.handle.toLowerCase().includes(needle),
-  );
-}
-
 function getVisibleItems(): Array<Dependency | PredefinedSkill> {
-  if (getActiveTab() === "Predefined") {
-    return applyPredefinedFilter(filterInstalledPredefined(getPredefinedSkills()));
+  if (getActiveTab() === "Discover") {
+    return filterInstalledPredefined(getPredefinedSkills());
   }
   if (getActiveTab() === "Updates") {
-    return applyPredefinedFilter(getUpdateSkills());
+    return getUpdateSkills();
   }
-  return applyFilter(getDependencies());
+  return getDependencies();
 }
 
 function clampSelection(): void {
@@ -1168,7 +1445,7 @@ function clampSelection(): void {
 }
 
 function selectedDependency(): Dependency | null {
-  if (getActiveTab() === "Predefined" || getActiveTab() === "Updates") {
+  if (getActiveTab() === "Discover" || getActiveTab() === "Updates") {
     return null;
   }
   const visible = getVisibleItems() as Dependency[];
@@ -1179,7 +1456,7 @@ function selectedDependency(): Dependency | null {
 }
 
 function selectedPredefined(): PredefinedSkill | null {
-  if (getActiveTab() !== "Predefined") {
+  if (getActiveTab() !== "Discover") {
     return null;
   }
   const visible = getVisibleItems() as PredefinedSkill[];
@@ -1208,11 +1485,14 @@ function renderList(): void {
   const tab = getActiveTab();
   const visible = getVisibleItems();
   clampSelection();
-  if (tab === "Updates" && state.updateCheckedAt) {
-    const short = formatTimestampShort(state.updateCheckedAt);
-    leftTitle.content = short ? `Update Candidates (${short})` : "Update Candidates";
-  } else {
-    leftTitle.content = tab === "Updates" ? "Update Candidates" : "Skills";
+  let nameCounts: Record<string, number> | null = null;
+  if (tab === "Discover") {
+    nameCounts = {};
+    for (const item of visible) {
+      const skill = item as PredefinedSkill;
+      const name = getSkillDisplayLabel(skill);
+      nameCounts[name] = (nameCounts[name] ?? 0) + 1;
+    }
   }
   for (let i = 0; i < listLines.length; i += 1) {
     const item = visible[i];
@@ -1242,14 +1522,19 @@ function renderList(): void {
       continue;
     }
     const marker = i === state.selectedIndex ? ">" : " ";
-    if (tab === "Predefined" || tab === "Updates") {
+    if (tab === "Discover" || tab === "Updates") {
       const skill = item as PredefinedSkill;
       void resolveSkillLabel(skill);
       const displayLabel = getSkillDisplayLabel(skill);
-      if (displayLabel === skill.handle) {
-        listLines[i].content = `${marker} ${displayLabel}`;
+      if (tab === "Discover") {
+        const count = nameCounts?.[displayLabel] ?? 0;
+        if (count > 1) {
+          listLines[i].content = `${marker} ${displayLabel} - ${getSkillSourceLabel(skill)}`;
+        } else {
+          listLines[i].content = `${marker} ${displayLabel}`;
+        }
       } else {
-        listLines[i].content = `${marker} ${displayLabel} (${skill.handle})`;
+        listLines[i].content = `${marker} ${displayLabel}`;
       }
       if (tab === "Updates") {
         listLines[i].fg = state.updateError ? colors.warn : colors.accent;
@@ -1310,20 +1595,20 @@ function renderDetails(): void {
       lines.push("");
       lines.push("Press U to update skills.json.");
     }
-  } else if (tab === "Predefined") {
+  } else if (tab === "Discover") {
     if (state.predefinedError) {
-      lines.push(`Predefined list error: ${state.predefinedError}`);
+      lines.push(`Discover list error: ${state.predefinedError}`);
       lines.push("Edit skills.json to fix.");
     } else if (!predefined) {
-      lines.push("No predefined skills.");
+      lines.push("No skills in Discover.");
       const total = state.predefined.length;
       const visible = filterInstalledPredefined(state.predefined).length;
       if (total > 0 && visible === 0) {
-        lines.push("All predefined skills are already installed.");
+        lines.push("All discover skills are already installed.");
       } else if (state.updateInProgress) {
-        lines.push("Loading predefined list...");
+        lines.push("Loading discover list...");
       } else if (state.predefinedSource?.url || state.predefinedSource?.repo) {
-        lines.push("Waiting for predefined list to load...");
+        lines.push("Waiting for discover list to load...");
       } else {
         lines.push("Add entries to skills.json.");
       }
@@ -1345,10 +1630,6 @@ function renderDetails(): void {
   } else if (!dep) {
     lines.push("No skills in agr.toml.");
   } else {
-    const repoPath = state.targetRepo;
-    const repoPathMissing = !!repoPath && !existsSync(repoPath);
-    const configPath = repoPath ? join(repoPath, "agr.toml") : null;
-    const configMissing = !!configPath && !existsSync(configPath);
     lines.push(`Selected: ${dep.identifier}`);
     lines.push(`Installed: ${dep.installed ? "yes" : "no"}`);
     lines.push(`Source: ${dep.is_local ? "local" : "remote"}`);
@@ -1359,44 +1640,11 @@ function renderDetails(): void {
       lines.push(`Path: ${dep.path}`);
     }
     lines.push("");
-  if (tab === "List") {
-    lines.push("List shows skills in agr.toml + install state.");
-    lines.push("Press i to install selected missing skills.");
-    lines.push("Press s to sync all skills at once.");
-    lines.push("Press r to remove selected skills.");
-  } else if (tab === "Run") {
-    lines.push("Run uses agrx to execute a skill temporarily.");
-    } else if (tab === "Config") {
-      lines.push(`Config path: ${state.data.config_path ?? "(none)"}`);
-      lines.push(`Repo root: ${state.data.repo_root ?? "(none)"}`);
-      lines.push(`Target repo: ${repoPath ?? "(unset)"}`);
-      if (repoPathMissing) {
-        lines.push("Status: repo path not found");
-      } else if (configMissing) {
-        lines.push("Status: agr.toml not found in repo");
-      } else {
-        lines.push("Status: repo path OK");
-      }
-      if (state.predefinedSource?.repo) {
-        lines.push(`Skills source: ${state.predefinedSource.repo}`);
-      } else if (state.predefinedSource?.url) {
-        lines.push(`Skills source: ${state.predefinedSource.url}`);
-      } else {
-        lines.push("Skills source: skills.json (local)");
-      }
-      if (state.updateCheckedAt) {
-        lines.push(`Updates checked: ${state.updateCheckedAt}`);
-      }
-      lines.push(`Tools: ${state.data.tools.join(", ") || "(none)"}`);
+    if (tab === "Skills") {
+      lines.push("Skills shows skills in agr.toml + install state.");
     }
 
-    if (tab !== "Config" && tab !== "Predefined" && tab !== "Updates" && state.previewLines.length > 0) {
-      lines.push("");
-      lines.push("SKILL.md preview:");
-      lines.push(...state.previewLines);
-    }
-
-    if (tab !== "Config" && tab !== "Predefined" && tab !== "Updates" && dep && state.data?.installed) {
+    if (tab !== "Discover" && tab !== "Updates" && dep && state.data?.installed) {
       const toolLines: string[] = [];
       const candidatesByTool = dep.candidates_by_tool ?? {};
       for (const toolName of state.data.tools) {
@@ -1434,7 +1682,7 @@ function renderDetails(): void {
       detailLines[i].fg = content.includes("yes") ? colors.accent : colors.warn;
     } else if (content.startsWith("Handle:")) {
       detailLines[i].fg = colors.accent;
-    } else if (content.startsWith("Predefined list error:") || content.startsWith("Update error:")) {
+    } else if (content.startsWith("Discover list error:") || content.startsWith("Update error:")) {
       detailLines[i].fg = colors.warn;
     } else {
       detailLines[i].fg = colors.text;
@@ -1446,29 +1694,21 @@ function renderActions(): void {
   const tab = getActiveTab();
   const toolName = state.data?.tools[state.toolIndex] ?? "";
   const lines: string[] = [];
-  lines.push("a: add skill");
-  lines.push("R: set repo");
+  lines.push("i: install");
+  lines.push("r: remove");
   lines.push("space: toggle select");
-  lines.push("q: quit");
+  lines.push("v: show SKILL");
+  lines.push("g: run");
+  lines.push("G: run options");
+  lines.push("a: add skill");
+  lines.push("T: test popup");
   lines.push("c: reload config");
   lines.push("H: help");
   lines.push("Tab: next panel");
-  lines.push("j/k: move selection");
-  lines.push("/: filter");
+  lines.push("Arrow keys: move");
+  lines.push("q: quit");
 
-  if (tab === "List") {
-    lines.push("i: install selected");
-    lines.push("I: install all selected");
-    lines.push("s: sync all");
-    lines.push("r: remove selected");
-    lines.push("x: remove all selected");
-  } else if (tab === "Run") {
-    lines.push("r: run selected");
-    lines.push(`t: tool (${toolName || "none"})`);
-    lines.push("p: edit prompt");
-    lines.push(`u: interactive (${state.interactive ? "on" : "off"})`);
-    lines.push(`e: extra args (${state.argsBuffer || "none"})`);
-  } else if (tab === "Predefined") {
+  if (tab === "Discover") {
     lines.push("i: add selected");
   } else if (tab === "Updates") {
     lines.push("u: check updates");
@@ -1476,7 +1716,7 @@ function renderActions(): void {
     lines.push("s: apply (confirm)");
     lines.push("S: apply + sync (no confirm)");
   }
-  if (tab === "Predefined" || tab === "Updates") {
+  if (tab === "Discover" || tab === "Updates") {
     lines.push("y: copy handle/repo");
   }
   lines.push("[/]: preview scroll");
@@ -1506,20 +1746,16 @@ function renderFooter(): void {
   if (rendererDestroyed || (footerStatus as any).isDestroyed || (footerHint as any).isDestroyed) {
     return;
   }
-  footerStatus.content = state.updateInProgress ? "Loading predefined list..." : state.status;
+  footerStatus.content = state.updateInProgress ? "Loading discover list..." : state.status;
   const hints: string[] = [];
   if (state.confirmUpdateOpen) {
     hints.push("Update pending: y apply, s apply+sync, n/Esc cancel");
-  } else if (state.inputMode === "filter") {
-    hints.push("Filter mode: type to filter, Enter to accept, Esc to cancel");
   } else if (state.inputMode === "add") {
     hints.push("Add mode: enter handle/path, Enter to add, Esc to cancel");
   } else if (state.inputMode === "prompt") {
     hints.push("Prompt mode: Enter to run, Esc to cancel");
   } else if (state.inputMode === "args") {
     hints.push("Args mode: Enter to set extra args, Esc to cancel");
-  } else if (state.inputMode === "repo") {
-    hints.push("Repo mode: Enter repo path, Esc to cancel");
   } else {
     hints.push("Press Tab to switch panels. Press q to exit.");
   }
@@ -1536,6 +1772,10 @@ function renderAll(): void {
   renderActions();
   renderFooter();
   renderHelp();
+  renderPreviewModal();
+  renderMissingConfig();
+  renderVerifyModal();
+  renderRunOptions();
   renderUpdateConfirm();
   renderRunModal();
   renderer.requestRender();
@@ -1550,21 +1790,16 @@ function renderHelp(): void {
   const tab = getActiveTab();
   helpTitle.content = `${tab} Help`;
   const lines: string[] = [];
-  if (tab === "List") {
-    lines.push("List shows skills in agr.toml with status.");
-    lines.push("Press i to install selected.");
-    lines.push("Use space to multi-select, then I to install all.");
-    lines.push("Press s to sync everything at once.");
-    lines.push("Press r to remove selected.");
-    lines.push("Press x to remove all selected.");
-  } else if (tab === "Run") {
-    lines.push("Run executes a skill without installing it.");
-    lines.push("Press r to run selected, t to change tool.");
-    lines.push("Use p for prompt, u for interactive, e for args.");
-  } else if (tab === "Predefined") {
-    lines.push("Predefined lists skills from skills.json.");
+  if (tab === "Skills") {
+    lines.push("Skills shows skills in agr.toml with status.");
+    lines.push("Press v to preview SKILL.md.");
+    lines.push("Press g to run selected.");
+    lines.push("Press G to edit run options.");
+    lines.push("Press T to test the run popup.");
+  } else if (tab === "Discover") {
+    lines.push("Discover lists skills from skills.json.");
     lines.push("Select one and press i to add it.");
-    lines.push("Edit skills.json to customize the list.");
+    lines.push("Edit skills.json to change the source.");
   } else if (tab === "Updates") {
     lines.push("Updates checks for changes to skills.json.");
     lines.push("Press u to check the remote list.");
@@ -1572,17 +1807,82 @@ function renderHelp(): void {
     lines.push("Press s to review before applying.");
     lines.push("Press S to apply updates and run agr sync.");
     lines.push("Press y to copy handle/repo.");
-  } else if (tab === "Config") {
-    lines.push("Config shows detected repo + agr.toml info.");
-    lines.push("Press c to reload configuration.");
-    lines.push("Repo path should point to a folder with agr.toml.");
-    lines.push("If empty or wrong, set repo path with R.");
   }
   while (lines.length < helpLines.length) {
     lines.push("");
   }
   for (let i = 0; i < helpLines.length; i += 1) {
     helpLines[i].content = lines[i] ?? "";
+  }
+}
+
+function renderPreviewModal(): void {
+  if (!state.previewOpen) {
+    previewOverlay.visible = false;
+    return;
+  }
+  previewOverlay.visible = true;
+  const dep = selectedDependency();
+  previewTitle.content = dep ? `SKILL.md: ${dep.identifier}` : "SKILL.md";
+  const lines = state.previewAll.length > 0 ? state.previewAll : ["No SKILL.md found."];
+  const start = state.previewOffset;
+  const slice = lines.slice(start, start + 9);
+  previewText.setText(slice.join("\n"));
+}
+
+function renderRunOptions(): void {
+  if (!state.runOptionsOpen) {
+    runOptionsOverlay.visible = false;
+    return;
+  }
+  runOptionsOverlay.visible = true;
+  const dep = selectedDependency();
+  runOptionsSkill.content = dep ? `Skill: ${dep.identifier}` : "Skill: (none)";
+  const toolName = state.data?.tools[state.toolIndex] ?? "(none)";
+  runOptionsTool.content = `Tool: ${toolName}`;
+  runOptionsInteractive.content = `Interactive: ${state.interactive ? "on" : "off"}`;
+  runOptionsPrompt.content = `Prompt: ${state.promptBuffer || "(none)"}`;
+  runOptionsArgs.content = `Args: ${state.argsBuffer || "(none)"}`;
+}
+
+function renderMissingConfig(): void {
+  if (!state.missingConfigOpen) {
+    missingConfigOverlay.visible = false;
+    return;
+  }
+  missingConfigOverlay.visible = true;
+  missingConfigLine1.content = "agr.toml not found in current directory.";
+  missingConfigLine2.content = "Run this binary from a repo that has agr.toml.";
+}
+
+function renderVerifyModal(): void {
+  if (!state.verifyOpen) {
+    verifyOverlay.visible = false;
+    return;
+  }
+  verifyOverlay.visible = true;
+  const wrapped = wrapText(state.verifyMessage, 64);
+  verifyLine.content = wrapped[0] ?? "";
+  verifyLine2.content = wrapped[1] ?? "";
+  const details = state.verifyDetails ?? [];
+  const list: string[] = [];
+  for (const item of details) {
+    const wrappedItem = wrapText(item, 60);
+    if (wrappedItem.length === 0) {
+      continue;
+    }
+    list.push(`- ${wrappedItem[0]}`);
+    for (const extra of wrappedItem.slice(1)) {
+      list.push(`  ${extra}`);
+    }
+  }
+  if (list.length > verifyListLines.length) {
+    const remaining = list.length - (verifyListLines.length - 1);
+    list.length = verifyListLines.length - 1;
+    list.push(`... +${remaining} more`);
+  }
+  for (let i = 0; i < verifyListLines.length; i += 1) {
+    verifyListLines[i].content = list[i] ?? "";
   }
 }
 
@@ -1605,16 +1905,34 @@ function renderUpdateConfirm(): void {
 }
 
 function renderRunModal(): void {
-  if (!state.busy) {
+  if (!state.busy && !state.runTestOpen) {
     runOverlay.visible = false;
     return;
   }
   runOverlay.visible = true;
-  runCmd.content = state.lastCommand ? state.lastCommand : "Running...";
+  const cmdText = state.runTestOpen
+    ? "uv run agr add kasperjunge/agent-resources/development/workflow/code-review"
+    : state.lastCommand
+      ? state.lastCommand
+      : "Running...";
+  let handleText = "";
+  if (state.runTestOpen) {
+    handleText = "kasperjunge/agent-resources/development/workflow/code-review";
+  } else {
+    const match = state.lastCommand.match(/\bagr\s+(add|remove)\s+(.+)$/);
+    if (match) {
+      handleText = match[2];
+    }
+  }
+  const text = handleText
+    ? `Cmd:\n${cmdText}\n\nHandle:\n${handleText}\n\ncwd:\n${process.cwd()}\n\nPlease wait...`
+    : `Cmd:\n${cmdText}\n\ncwd:\n${process.cwd()}\n\nPlease wait...`;
+  runText.setText(text);
 }
 
 function showToast(message: string, durationMs = 2000): void {
-  toastText.content = message;
+  const wrapped = wrapText(message, 28);
+  toastText.content = wrapped[0] ?? message;
   toastOverlay.visible = true;
   renderer.requestRender();
   setTimeout(() => {
@@ -1652,7 +1970,23 @@ async function runCommand(args: string[]): Promise<{ exitCode: number; stdout: s
   state.lastCommand = args.join(" ");
   renderRunModal();
   setStatus(`Running: ${state.lastCommand}`);
-  const cwd = state.targetRepo ?? process.cwd();
+  const cwd = process.cwd();
+  const isAgr = args[0] === "uv" && (args[2] === "agr" || args[2] === "agrx");
+  const agrSub = args[3] ?? "";
+  const needsConfig = args[2] === "agr" && ["add", "remove", "sync"].includes(agrSub);
+  if (isAgr && needsConfig) {
+    const configPath = join(cwd, "agr.toml");
+    if (!existsSync(configPath)) {
+      state.busy = false;
+      state.missingConfig = true;
+      setStatus("Error: agr.toml missing in current directory");
+      showToast("Missing agr.toml");
+      logEvent("Run blocked: missing agr.toml");
+      renderRunModal();
+      return { exitCode: 1, stdout: "", stderr: "missing agr.toml" };
+    }
+  }
+  logEvent(`Run command: ${state.lastCommand} (cwd=${cwd})`);
   const env = {
     ...process.env,
     UV_CACHE_DIR: process.env.UV_CACHE_DIR ?? "/tmp/uv-cache",
@@ -1674,7 +2008,6 @@ async function runCommand(args: string[]): Promise<{ exitCode: number; stdout: s
   state.lastExit = exitCode;
   renderRunModal();
   if (exitCode === 0) {
-    showToast("Command succeeded");
     setStatus("Done");
   } else {
     showToast(`Command failed (${exitCode})`);
@@ -1688,6 +2021,16 @@ async function runCommand(args: string[]): Promise<{ exitCode: number; stdout: s
     } else {
       setStatus(`Command failed (${exitCode})`);
     }
+    const stderrLine = stderr.trim().split(/\r?\n/).slice(-1)[0];
+    if (stderrLine) {
+      openVerify(`Command error: ${stderrLine}`);
+    }
+  }
+  if (stderr.trim()) {
+    logEvent(`Command stderr: ${stderr.trim().slice(0, 400)}`);
+  }
+  if (stdout.trim() && isAgr) {
+    logEvent(`Command stdout: ${stdout.trim().slice(0, 400)}`);
   }
   return { exitCode, stdout, stderr };
 }
@@ -1704,29 +2047,24 @@ async function loadData(): Promise<void> {
       const now = Date.now();
       const sixHoursMs = 6 * 60 * 60 * 1000;
       if (!lastChecked || Number.isNaN(lastChecked) || now - lastChecked > sixHoursMs) {
-        setStatus("Loading predefined list...");
+        setStatus("Loading discover list...");
         await checkUpdates();
         if (state.updateRemote.length > 0) {
           writeSkillsFile(state.updateRemote, state.predefinedSource);
           loadPredefined();
           renderList();
           renderDetails();
-          setStatus("Predefined list updated", { clearAfterMs: 2500 });
+          setStatus("Discover list updated", { clearAfterMs: 2500 });
         } else {
-          setStatus("Predefined list up to date", { clearAfterMs: 2500 });
+          setStatus("Discover list up to date", { clearAfterMs: 2500 });
         }
       }
     }
-    if (state.targetRepo) {
-      if (!existsSync(state.targetRepo)) {
-        setStatus("Repo path not found. Press R to set a valid repo path.");
-        return;
-      }
-      const configPath = join(state.targetRepo, "agr.toml");
-      if (!existsSync(configPath)) {
-        setStatus("No agr.toml in repo path. Press R to set the correct repo root.");
-        return;
-      }
+    const configPath = join(process.cwd(), "agr.toml");
+    state.missingConfig = !existsSync(configPath);
+    if (state.missingConfig) {
+      setStatus("Warning: no agr.toml in current directory");
+      state.missingConfigOpen = true;
     }
     setStatus("Loading configuration...");
     const result = await runCommand(["uv", "run", "python", "-m", "agr_opentui.bridge"]);
@@ -1752,8 +2090,23 @@ async function installSelected(): Promise<void> {
   if (!dep) {
     return;
   }
-  await runCommand(["uv", "run", "agr", "add", dep.identifier]);
+  if (state.missingConfig) {
+    showToast("Missing agr.toml in current directory");
+    setStatus("Error: agr.toml missing in current directory");
+    state.missingConfigOpen = true;
+    renderMissingConfig();
+    return;
+  }
+  const target = normalizeHandleForAgr(dep.handle ?? dep.identifier);
+  let result = await runCommand(["uv", "run", "agr", "add", target]);
+  if (result.exitCode !== 0 && commandReportedExists(`${result.stdout}\n${result.stderr}`)) {
+    setStatus("Skill exists; retrying with --overwrite");
+    result = await runCommand(["uv", "run", "agr", "add", "--overwrite", target]);
+  }
   await loadData();
+  if (result.exitCode === 0) {
+    verifyAgrTomlContains(target, "install");
+  }
 }
 
 async function addPredefinedSelected(): Promise<void> {
@@ -1761,8 +2114,14 @@ async function addPredefinedSelected(): Promise<void> {
   if (!skill) {
     return;
   }
-  const target = skill.repo ?? skill.handle;
-  const result = await runCommand(["uv", "run", "agr", "add", target]);
+  logEvent(`Discover install requested: ${skill.handle}`);
+  const target = skill.repo ?? normalizeHandleForAgr(skill.handle);
+  setStatus(`Installing: ${target}`);
+  let result = await runCommand(["uv", "run", "agr", "add", target]);
+  if (result.exitCode !== 0 && commandReportedExists(`${result.stdout}\n${result.stderr}`)) {
+    setStatus("Skill exists; retrying with --overwrite");
+    result = await runCommand(["uv", "run", "agr", "add", "--overwrite", target]);
+  }
   if (result.exitCode === 0) {
     state.installedOverrides.add(skill.handle.toLowerCase());
     showToast(`Installed ${getSkillDisplayLabel(skill)}`);
@@ -1772,6 +2131,17 @@ async function addPredefinedSelected(): Promise<void> {
   renderDetails();
   renderActions();
   await loadData();
+  verifyAgrTomlContains(target, "install");
+  const skillsPath = join(process.cwd(), "skills.json");
+  if (existsSync(skillsPath)) {
+    const raw = readFileSync(skillsPath, "utf-8");
+    const variants = handleVariants(target).concat(handleVariants(skill.handle));
+    const found = variants.some((v) => raw.includes(v));
+    if (!found) {
+      openVerify("skills.json missing handle:", [target]);
+      logEvent(`Install check: skills.json missing ${target}`);
+    }
+  }
   renderList();
   renderDetails();
   renderActions();
@@ -1782,17 +2152,43 @@ async function removeSelected(): Promise<void> {
   if (!dep) {
     return;
   }
-  await runCommand(["uv", "run", "agr", "remove", dep.identifier]);
+  if (state.missingConfig) {
+    showToast("Missing agr.toml in current directory");
+    setStatus("Error: agr.toml missing in current directory");
+    state.missingConfigOpen = true;
+    renderMissingConfig();
+    return;
+  }
+  const target = normalizeHandleForAgr(dep.handle ?? dep.identifier);
+  const result = await runCommand(["uv", "run", "agr", "remove", target]);
   await loadData();
+  if (result.exitCode === 0) {
+    if (!commandReportedRemoved(result.stdout)) {
+      openVerify("agr did not report a remove.");
+      logEvent("Remove check: stdout missing 'Removed:' line");
+    } else {
+      verifyAgrTomlMissing(target, "remove");
+    }
+  }
 }
 
 async function syncAll(): Promise<void> {
-  await runCommand(["uv", "run", "agr", "sync"]);
+  if (state.missingConfig) {
+    showToast("Missing agr.toml in current directory");
+    setStatus("Error: agr.toml missing in current directory");
+    state.missingConfigOpen = true;
+    renderMissingConfig();
+    return;
+  }
+  const result = await runCommand(["uv", "run", "agr", "sync"]);
   await loadData();
-  if (getActiveTab() === "Predefined") {
+  if (getActiveTab() === "Discover") {
     renderList();
     renderDetails();
     renderActions();
+  }
+  if (result.exitCode === 0) {
+    verifyAgrTomlHasAny("sync");
   }
 }
 
@@ -1834,11 +2230,6 @@ function enterInputMode(mode: InputMode, seed = ""): void {
     addInput.value = seed;
     addInput.focus();
   }
-  if (mode === "repo") {
-    repoOverlay.visible = true;
-    repoInput.value = seed;
-    repoInput.focus();
-  }
   renderActions();
   renderFooter();
 }
@@ -1851,28 +2242,24 @@ function exitInputMode(): void {
     addInput.blur();
     addOverlay.visible = false;
   }
-  if (prevMode === "repo") {
-    repoInput.blur();
-    repoOverlay.visible = false;
-  }
   renderActions();
   renderFooter();
 }
 
 async function handleInputSubmit(): Promise<void> {
-  if (state.inputMode === "filter") {
-    state.filter = state.inputBuffer;
-    exitInputMode();
-    renderList();
-    renderDetails();
-    void refreshPreview();
-    return;
-  }
   if (state.inputMode === "add") {
     const value = addInput.value.trim();
     exitInputMode();
     if (value) {
-      await runCommand(["uv", "run", "agr", "add", value]);
+      if (looksLikeHandle(value) && !hasKnownHandle(value)) {
+        showToast("Handle not found in source list");
+        return;
+      }
+      let result = await runCommand(["uv", "run", "agr", "add", value]);
+      if (result.exitCode !== 0 && commandReportedExists(`${result.stdout}\n${result.stderr}`)) {
+        setStatus("Skill exists; retrying with --overwrite");
+        result = await runCommand(["uv", "run", "agr", "add", "--overwrite", value]);
+      }
       await loadData();
     }
     return;
@@ -1886,13 +2273,6 @@ async function handleInputSubmit(): Promise<void> {
     state.argsBuffer = state.inputBuffer.trim();
     exitInputMode();
     renderActions();
-  }
-  if (state.inputMode === "repo") {
-    const repo = repoInput.value.trim();
-    state.targetRepo = repo.length > 0 ? repo : null;
-    exitInputMode();
-    renderTabs();
-    await loadData();
   }
 }
 
@@ -1929,9 +2309,6 @@ function scrollPreview(delta: number): void {
   }
   const maxOffset = Math.max(0, state.previewAll.length - 8);
   state.previewOffset = Math.max(0, Math.min(maxOffset, state.previewOffset + delta));
-  state.previewLines = state.previewAll
-    .slice(state.previewOffset, state.previewOffset + 8)
-    .map((line) => line.slice(0, 80));
   renderDetails();
 }
 
@@ -1976,13 +2353,149 @@ function parseArgs(input: string): string[] {
   return args;
 }
 
+function wrapText(text: string, width: number): string[] {
+  if (width <= 0) {
+    return [text];
+  }
+  const words = text.split(/\s+/);
+  const lines: string[] = [];
+  let current = "";
+  for (const word of words) {
+    if (!current) {
+      current = word;
+      continue;
+    }
+    if (current.length + 1 + word.length <= width) {
+      current += ` ${word}`;
+    } else {
+      lines.push(current);
+      current = word;
+    }
+  }
+  if (current) {
+    lines.push(current);
+  }
+  return lines.length > 0 ? lines : [text];
+}
+
+function openVerify(message: string, details: string[] = []): void {
+  state.verifyMessage = message;
+  state.verifyDetails = details;
+  state.verifyOpen = true;
+  renderVerifyModal();
+}
+
+function normalizeHandle(handle: string): string {
+  return handle.trim().toLowerCase();
+}
+
+function readAgrToml(): string | null {
+  const path = join(process.cwd(), "agr.toml");
+  if (!existsSync(path)) {
+    return null;
+  }
+  return readFileSync(path, "utf-8");
+}
+
+function verifyAgrTomlContains(handle: string, label: string): void {
+  const text = readAgrToml();
+  if (!text) {
+    openVerify("agr.toml is missing after command.");
+    logEvent(`Verify ${label}: agr.toml missing`);
+    return;
+  }
+  const variants = handleVariants(handle);
+  const found = variants.some((v) => text.includes(v));
+  if (!found) {
+    openVerify("agr.toml missing handle:", [handle]);
+    logEvent(`Verify ${label}: handle not found (${handle})`);
+  }
+}
+
+function verifyAgrTomlContainsMany(handles: string[], label: string): void {
+  const text = readAgrToml();
+  if (!text) {
+    openVerify("agr.toml is missing after command.");
+    logEvent(`Verify ${label}: agr.toml missing`);
+    return;
+  }
+  const missing = handles.filter((h) => !text.includes(h));
+  if (missing.length > 0) {
+    const filtered = missing.filter((h) => !handleVariants(h).some((v) => text.includes(v)));
+    if (filtered.length === 0) {
+      return;
+    }
+    openVerify("agr.toml missing handles:", filtered);
+    logEvent(`Verify ${label}: missing ${filtered.join(", ")}`);
+  }
+}
+
+function verifyAgrTomlMissing(handle: string, label: string): void {
+  const text = readAgrToml();
+  if (!text) {
+    return;
+  }
+  const variants = handleVariants(handle);
+  const found = variants.some((v) => text.includes(v));
+  if (found) {
+    openVerify("agr.toml still contains handle:", [handle]);
+    logEvent(`Verify ${label}: handle still present (${handle})`);
+  }
+}
+
+function verifyAgrTomlMissingMany(handles: string[], label: string): void {
+  const text = readAgrToml();
+  if (!text) {
+    return;
+  }
+  const present = handles.filter((h) => text.includes(h));
+  if (present.length > 0) {
+    const filtered = present.filter((h) => handleVariants(h).some((v) => text.includes(v)));
+    if (filtered.length === 0) {
+      return;
+    }
+    openVerify("agr.toml still contains:", filtered);
+    logEvent(`Verify ${label}: still present ${filtered.join(", ")}`);
+  }
+}
+
+function verifyAgrTomlHasAny(label: string): void {
+  const text = readAgrToml();
+  if (!text) {
+    openVerify("agr.toml is missing after sync.");
+    logEvent(`Verify ${label}: agr.toml missing`);
+    return;
+  }
+  if (!/dependencies\s*=|\[\[dependencies\]\]/.test(text)) {
+    openVerify("agr.toml has no dependencies after sync.");
+    logEvent(`Verify ${label}: no dependencies found`);
+  }
+}
+
+function commandReportedAdded(stdout: string): boolean {
+  const lines = stdout.split(/\r?\n/).map((line) => line.trim());
+  return lines.some((line) => line.startsWith("Added:"));
+}
+
+function commandReportedExists(output: string): boolean {
+  const text = output.toLowerCase();
+  return text.includes("skill already exists") || text.includes("already exists at");
+}
+
+function commandReportedRemoved(stdout: string): boolean {
+  const lines = stdout.split(/\r?\n/).map((line) => line.trim());
+  return lines.some((line) => line.startsWith("Removed:") || line.startsWith("Deleted:"));
+}
+
 async function refreshPreview(): Promise<void> {
   const dep = selectedDependency();
   if (!dep || !dep.skill_md_path) {
-    state.previewLines = [];
     state.previewAll = [];
     state.previewOffset = 0;
     renderDetails();
+    if (state.previewOpen) {
+      renderPreviewModal();
+    }
     return;
   }
   try {
@@ -1990,13 +2503,14 @@ async function refreshPreview(): Promise<void> {
     const lines = text.split(/\r?\n/);
     state.previewAll = lines.map((line) => line.slice(0, 200));
     state.previewOffset = 0;
-    state.previewLines = state.previewAll.slice(0, 8).map((line) => line.slice(0, 80));
   } catch {
-    state.previewLines = [];
     state.previewAll = [];
     state.previewOffset = 0;
   }
   renderDetails();
+  if (state.previewOpen) {
+    renderPreviewModal();
+  }
 }
 
 function toggleSelected(): void {
@@ -2023,18 +2537,51 @@ async function installSelectedBulk(): Promise<void> {
     await installSelected();
     return;
   }
-  await runCommand(["uv", "run", "agr", "add", ...selected]);
+  const normalized = selected.map((id) => normalizeHandleForAgr(id));
+  let result = await runCommand(["uv", "run", "agr", "add", ...normalized]);
+  if (result.exitCode !== 0 && commandReportedExists(`${result.stdout}\n${result.stderr}`)) {
+    setStatus("Skill exists; retrying with --overwrite");
+    result = await runCommand(["uv", "run", "agr", "add", "--overwrite", ...normalized]);
+  }
   await loadData();
+  if (result.exitCode === 0) {
+    verifyAgrTomlContainsMany(normalized, "install");
+  }
 }
 
 async function removeSelectedBulk(): Promise<void> {
-  const selected = getSelectedIds();
-  if (selected.length === 0) {
+  const selectedIds = getSelectedIds();
+  if (selectedIds.length === 0) {
     await removeSelected();
     return;
   }
-  await runCommand(["uv", "run", "agr", "remove", ...selected]);
+  const deps = getDependencies();
+  const map = new Map<string, Dependency>();
+  for (const dep of deps) {
+    map.set(dep.identifier, dep);
+  }
+  const rawHandles = selectedIds.map((id) => {
+    const dep = map.get(id);
+    return dep?.handle ?? dep?.identifier ?? id;
+  });
+  const normalized = rawHandles.map((handle) => normalizeHandleForAgr(handle));
+  const unique = Array.from(new Set(normalized));
+  setStatus(`Removing ${unique.length} skills...`);
+  logEvent(`Bulk remove: ${unique.length} handles`);
+  let anyFailed = false;
+  for (const handle of unique) {
+    const result = await runCommand(["uv", "run", "agr", "remove", handle]);
+    if (result.exitCode !== 0) {
+      anyFailed = true;
+    }
+  }
   await loadData();
+  if (!anyFailed) {
+    verifyAgrTomlMissingMany(unique, "remove");
+    state.selectedIds.clear();
+    renderList();
+    renderActions();
+  }
 }
 
 function handleKey(sequence: string): boolean {
@@ -2043,6 +2590,76 @@ function handleKey(sequence: string): boolean {
       state.helpOpen = false;
       renderHelp();
       renderFooter();
+      return true;
+    }
+    return true;
+  }
+  if (state.verifyOpen) {
+    if (sequence === "\x1b") {
+      state.verifyOpen = false;
+      renderVerifyModal();
+      renderFooter();
+      return true;
+    }
+    return true;
+  }
+  if (state.missingConfigOpen) {
+    if (sequence === "\x1b") {
+      state.missingConfigOpen = false;
+      renderMissingConfig();
+      renderFooter();
+      return true;
+    }
+    return true;
+  }
+  if (state.runOptionsOpen) {
+    if (sequence === "\x1b") {
+      state.runOptionsOpen = false;
+      renderRunOptions();
+      renderFooter();
+      return true;
+    }
+    if (sequence === "\r" || sequence === "\n") {
+      state.runOptionsOpen = false;
+      renderRunOptions();
+      renderFooter();
+      void runSelected();
+      return true;
+    }
+    if (sequence === "t") {
+      cycleTool();
+      renderRunOptions();
+      return true;
+    }
+    if (sequence === "u") {
+      state.interactive = !state.interactive;
+      renderRunOptions();
+      return true;
+    }
+    if (sequence === "p") {
+      state.runOptionsOpen = false;
+      renderRunOptions();
+      enterInputMode("prompt", state.promptBuffer);
+      return true;
+    }
+    if (sequence === "e") {
+      state.runOptionsOpen = false;
+      renderRunOptions();
+      enterInputMode("args", state.argsBuffer);
+      return true;
+    }
+    return true;
+  }
+  if (state.previewOpen) {
+    if (sequence === "\x1b") {
+      state.previewOpen = false;
+      renderPreviewModal();
+      renderFooter();
+      return true;
+    }
+    if (sequence === "[" || sequence === "]") {
+      scrollPreview(sequence === "[" ? -1 : 1);
+      renderPreviewModal();
       return true;
     }
     return true;
@@ -2081,18 +2698,6 @@ function handleKey(sequence: string): boolean {
     }
     return false;
   }
-  if (state.inputMode === "repo") {
-    if (sequence === "\u0003") {
-      renderer.destroy();
-      process.exit(0);
-    }
-    if (sequence === "\x1b") {
-      exitInputMode();
-      return true;
-    }
-    return false;
-  }
-
   if (state.inputMode !== "none") {
     handleInputChar(sequence);
     return true;
@@ -2117,18 +2722,13 @@ function handleKey(sequence: string): boolean {
     return true;
   }
 
-  if (sequence === "\x1b[A" || sequence === "k") {
+  if (sequence === "\x1b[A") {
     moveSelection(-1);
     return true;
   }
 
-  if (sequence === "\x1b[B" || sequence === "j") {
+  if (sequence === "\x1b[B") {
     moveSelection(1);
-    return true;
-  }
-
-  if (sequence === "/") {
-    enterInputMode("filter", state.filter);
     return true;
   }
 
@@ -2159,76 +2759,65 @@ function handleKey(sequence: string): boolean {
     return true;
   }
 
+  if (sequence === "T") {
+    state.runTestOpen = !state.runTestOpen;
+    renderRunModal();
+    renderFooter();
+    return true;
+  }
+
   const tab = getActiveTab();
   if (sequence === "a") {
     enterInputMode("add");
     return true;
   }
 
-  if (sequence === "R") {
-    enterInputMode("repo", state.targetRepo ?? "");
+  if (tab === "Skills" && sequence === "i") {
+    if (state.selectedIds.size > 0) {
+      void installSelectedBulk();
+    } else {
+      void installSelected();
+    }
     return true;
   }
 
-  if (tab === "List" && sequence === "i") {
-    void installSelected();
+  if (tab === "Skills" && sequence === "r") {
+    if (state.selectedIds.size > 0) {
+      void removeSelectedBulk();
+    } else {
+      void removeSelected();
+    }
     return true;
   }
 
-  if (tab === "List" && sequence === "I") {
-    void installSelectedBulk();
+  if (tab === "Skills" && sequence === "v") {
+    void refreshPreview();
+    state.previewOpen = true;
+    renderPreviewModal();
+    renderFooter();
     return true;
   }
 
-  if (tab === "List" && sequence === "r") {
-    void removeSelected();
-    return true;
-  }
-
-  if (tab === "List" && sequence === "x") {
-    void removeSelectedBulk();
-    return true;
-  }
-
-  if (tab === "List" && sequence === "s") {
-    void syncAll();
-    return true;
-  }
-
-  if (tab === "Run" && sequence === "r") {
+  if (tab === "Skills" && sequence === "g") {
     void runSelected();
     return true;
   }
 
-  if (tab === "Run" && sequence === "t") {
-    cycleTool();
-    renderActions();
+  if (tab === "Skills" && sequence === "G") {
+    state.runOptionsOpen = true;
+    renderRunOptions();
+    renderFooter();
     return true;
   }
 
-  if (tab === "Run" && sequence === "p") {
-    enterInputMode("prompt", state.promptBuffer);
-    return true;
-  }
-
-  if (tab === "Run" && sequence === "u") {
-    state.interactive = !state.interactive;
-    renderActions();
-    return true;
-  }
-
-  if (tab === "Run" && sequence === "e") {
-    enterInputMode("args", state.argsBuffer);
-    return true;
-  }
-
-  if (tab === "Predefined" && sequence === "i") {
+  if (tab === "Discover" && sequence === "i") {
+    logEvent("Key: Discover install (i)");
     void addPredefinedSelected();
     return true;
   }
 
-  if ((tab === "Predefined" || tab === "Updates") && sequence === "y") {
-    const skill = tab === "Predefined" ? selectedPredefined() : selectedUpdate();
+  if ((tab === "Discover" || tab === "Updates") && sequence === "y") {
+    const skill = tab === "Discover" ? selectedPredefined() : selectedUpdate();
     if (skill) {
       const text = skill.repo ? `${skill.repo} (${skill.handle})` : skill.handle;
       void (async () => {
@@ -2289,13 +2878,5 @@ addInput.on("input", (value) => {
   renderFooter();
 });
 addInput.on("enter", () => {
-  void handleInputSubmit();
-});
-repoInput.on("input", (value) => {
-  state.inputBuffer = String(value ?? "");
-  renderActions();
-  renderFooter();
-});
-repoInput.on("enter", () => {
   void handleInputSubmit();
 });

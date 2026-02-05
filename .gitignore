@@ -29,3 +29,6 @@ htmlcov/
 *.swo
 /tmp/
 .uv/
+.claude/
+.agents/
+agr.toml

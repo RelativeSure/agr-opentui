@@ -1,10 +1,10 @@
 {
   "source": {
+    "format": "agr-toml",
     "repo": "kasperjunge/agent-resources",
     "branch": "main",
-    "path": "skills.json",
+    "path": "agr.toml",
     "url": "https://github.com/kasperjunge/agent-resources/blob/main/agr.toml",
-    "format": "agr-toml",
     "lastCommit": null,
     "lastChecked": null
   },
