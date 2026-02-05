@@ -5,7 +5,7 @@
     "": {
       "name": "agr-opentui",
       "dependencies": {
-        "@opentui/core": "^0.1.73",
+        "@opentui/core": "^0.1.77",
       },
     },
   },
