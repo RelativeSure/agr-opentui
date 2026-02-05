@@ -79,6 +79,16 @@ bun run src/main.ts
 ```
 
 Run it from the repo you want to manage (the current working directory is the target repo).
+`agr.toml` is expected in that target repo for `agr add/remove/sync` operations.
+
+### Run From Target Repo
+
+```bash
+cd /path/to/your/project
+agr-tui
+```
+
+`agr-opentui` itself does not need to contain your target repo's `agr.toml`.
 
 ## Build
 
