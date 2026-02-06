@@ -9,6 +9,8 @@ An OpenTUI interface for the `agr`/`agrx` CLI: view configured skills, trigger `
 
 </div>
 
+---
+
 `agr-opentui` is an OpenTUI front-end for `agr`/`agrx`.
 The default discover source in this repo points to `https://github.com/kasperjunge/agent-resources`.
 
