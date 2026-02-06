@@ -14,10 +14,6 @@ export async function submitAddInputWithUi(input: {
     return;
   }
 
-  if (input.looksLikeHandle(value) && !input.hasKnownHandle(value)) {
-    input.showToast("Handle not found in source list; adding anyway");
-  }
-
   let result = await input.runCommand(["uv", "run", "agr", "add", value]);
   if (result.exitCode !== 0 && commandReportedExists(`${result.stdout}\n${result.stderr}`)) {
     input.setStatus("Skill exists; retrying with --overwrite");
