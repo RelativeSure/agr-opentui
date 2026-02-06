@@ -47,6 +47,26 @@ describe("skills file service", () => {
     expect(result.predefinedSource).toBeNull();
   });
 
+  test("preserves source metadata from embedded object payload", () => {
+    const result = loadPredefinedFromDisk({
+      cwd: "/repo",
+      existsSync: () => false,
+      readFileSync: () => "",
+      normalizeSkills: (items) => items.map((item) => ({ label: String(item), handle: String(item) })),
+      normalizeSource: (source) => source ?? { format: "skills-json" },
+      embedded: {
+        payload: {
+          source: { repo: "kasperjunge/agent-resources", path: "agr.toml", format: "agr-toml" },
+          skills: ["./skills/development/workflow/code-review"],
+        },
+      },
+    });
+
+    expect(result.predefinedError).toBeNull();
+    expect(result.predefinedSource?.repo).toBe("kasperjunge/agent-resources");
+    expect(result.predefinedSource?.format).toBe("agr-toml");
+  });
+
   test("writes object-format skills.json payload", () => {
     let written = "";
 

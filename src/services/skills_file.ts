@@ -56,7 +56,7 @@ export function loadPredefinedFromDisk(input: {
     };
     if (input.useEmbedded !== false && embedded) {
       try {
-        return decodePayload(embedded.payload, false);
+        return decodePayload(embedded.payload, true);
       } catch (error) {
         return {
           predefined: [],
