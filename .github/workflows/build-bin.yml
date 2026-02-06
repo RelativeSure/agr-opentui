@@ -60,7 +60,7 @@ jobs:
           echo "name=${name}" >> "$GITHUB_OUTPUT"
 
       - name: Rename binary
-        run: mv bin/agr-tui "bin/${{ steps.name.outputs.name }}"
+        run: mv bin/agr-opentui "bin/${{ steps.name.outputs.name }}"
 
       - name: Upload artifact
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0

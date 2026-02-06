@@ -31,7 +31,7 @@ python -m pip install agr-opentui
 Then run:
 
 ```bash
-agr-tui
+agr-opentui
 ```
 
 ## Usage
@@ -92,7 +92,7 @@ Discover flow:
 
 ## Requirements
 
-### Runtime (using `agr-tui`):
+### Runtime (using `agr-opentui`):
 - Python 3.10+
 - `uv`
 - `agr` + `agrx` on your `PATH`
@@ -110,7 +110,7 @@ or
 ```bash
 make build
 ```
-This creates `bin/agr-tui`.
+This creates `bin/agr-opentui`.
 
 
 #### Install
@@ -132,7 +132,7 @@ Run it from the repo you want to manage (the current working directory is the ta
 
 ```bash
 cd /path/to/your/project
-agr-tui
+agr-opentui
 ```
 
 `agr-opentui` itself does not need to contain your target repo's `agr.toml`.

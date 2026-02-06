@@ -2,7 +2,7 @@ BUN ?= bun
 PYTHON ?= python3
 ENTRY ?= src/main.ts
 OUT_DIR ?= bin
-OUT ?= $(OUT_DIR)/agr-tui
+OUT ?= $(OUT_DIR)/agr-opentui
 DIST_DIR ?= dist
 
 .PHONY: build clean
