@@ -88,7 +88,7 @@ describe("three-pane render snapshots", () => {
       selectedIndex: 1,
       list: ["  alpha - org/repo", "> alpha - org/other", ""],
       details: ["Name: alpha", "Source: org/other", "Handle: org/other/alpha", "Repo: org/other", ""],
-      actions: ["f: filter list", "p: pin selected", "i: add selected", "r: remove selected", "z: undo last add/remove"],
+      actions: ["f: filter list", "p: pin selected", "i: add selected", "z: undo last add/remove", "L: run history"],
     });
   });
 });

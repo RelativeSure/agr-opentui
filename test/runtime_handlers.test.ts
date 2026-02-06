@@ -223,4 +223,15 @@ describe("runtime key handler", () => {
     expect(calls.openRunHistory).toBe(1);
     expect(calls.undoLastAction).toBe(1);
   });
+
+  test("invalid action key on active tab is ignored without blocking next input", () => {
+    const { state, calls, handleKey } = createDeps();
+    state.tabIndex = 1; // Discover tab
+
+    expect(handleKey("r")).toBe(false);
+    expect(calls.enterInputMode).toHaveLength(0);
+
+    expect(handleKey("f")).toBe(true);
+    expect(calls.enterInputMode).toEqual([{ mode: "filter", seed: "" }]);
+  });
 });

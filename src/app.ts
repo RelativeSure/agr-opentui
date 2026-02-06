@@ -353,6 +353,7 @@ function renderActions(): void {
   renderActionsWithUi({
     tab: getActiveTab() === "Discover" ? "Discover" : "Skills",
     rowCount: actionLines.length,
+    updateAvailable: state.updateAvailable,
     lines: actionLines,
   });
 }

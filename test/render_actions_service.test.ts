@@ -13,6 +13,7 @@ describe("render actions service", () => {
     renderActionsWithUi({
       tab: "Discover",
       rowCount: lines.length,
+      updateAvailable: false,
       lines,
     });
 

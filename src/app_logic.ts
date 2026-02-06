@@ -323,9 +323,12 @@ export function buildHelpLines(tab: "Skills" | "Discover"): string[] {
   ];
 }
 
-export function buildActionLines(tab: "Skills" | "Discover"): string[] {
+export function buildActionLines(
+  tab: "Skills" | "Discover",
+  options?: { updateAvailable?: boolean },
+): string[] {
   if (tab === "Skills") {
-    return [
+    const lines = [
       "f: filter list",
       "p: pin selected",
       "space: toggle select",
@@ -337,9 +340,6 @@ export function buildActionLines(tab: "Skills" | "Discover"): string[] {
       "g: run",
       "G: run options",
       "u: check updates",
-      "U: apply update",
-      "s: apply (confirm)",
-      "S: apply + sync",
       "a: add skill",
       "d: doctor",
       "T: test popup",
@@ -349,16 +349,18 @@ export function buildActionLines(tab: "Skills" | "Discover"): string[] {
       "Arrow keys: move",
       "q: quit",
     ];
+    if (options?.updateAvailable) {
+      lines.splice(11, 0, "U: apply update", "s: apply (confirm)", "S: apply + sync");
+    }
+    return lines;
   }
   return [
     "f: filter list",
     "p: pin selected",
     "i: add selected",
-    "r: remove selected",
     "z: undo last add/remove",
     "L: run history",
     "y: copy handle/repo",
-    "space: toggle select",
     "a: add skill",
     "d: doctor",
     "T: test popup",

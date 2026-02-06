@@ -166,8 +166,12 @@ export function buildDetailsRows(input: {
   return rows;
 }
 
-export function buildActionRows(input: { tab: "Skills" | "Discover"; rowCount: number }): UiRow[] {
-  const lines = buildActionLines(input.tab);
+export function buildActionRows(input: {
+  tab: "Skills" | "Discover";
+  rowCount: number;
+  updateAvailable?: boolean;
+}): UiRow[] {
+  const lines = buildActionLines(input.tab, { updateAvailable: input.updateAvailable });
   const rows: UiRow[] = [];
   for (let i = 0; i < input.rowCount; i += 1) {
     const content = lines[i] ?? "";
@@ -280,7 +284,11 @@ export function buildThreePaneSnapshot(input: {
     rowCount: 12,
   });
 
-  const actions = buildActionRows({ tab: input.tab, rowCount: 12 });
+  const actions = buildActionRows({
+    tab: input.tab,
+    rowCount: 12,
+    updateAvailable: false,
+  });
 
   return {
     list: list.rows.map((row) => row.content),

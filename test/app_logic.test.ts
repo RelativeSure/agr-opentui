@@ -288,7 +288,7 @@ describe("integration smoke: mocked command run", () => {
 
 describe("help/action line snapshots", () => {
   test("skills action lines stay stable", () => {
-    expect(buildActionLines("Skills")).toEqual([
+    expect(buildActionLines("Skills", { updateAvailable: true })).toEqual([
       "f: filter list",
       "p: pin selected",
       "space: toggle select",
@@ -303,6 +303,30 @@ describe("help/action line snapshots", () => {
       "U: apply update",
       "s: apply (confirm)",
       "S: apply + sync",
+      "a: add skill",
+      "d: doctor",
+      "T: test popup",
+      "c: reload config",
+      "H: help",
+      "Tab: next panel",
+      "Arrow keys: move",
+      "q: quit",
+    ]);
+  });
+
+  test("skills action lines hide apply actions when no update is available", () => {
+    expect(buildActionLines("Skills", { updateAvailable: false })).toEqual([
+      "f: filter list",
+      "p: pin selected",
+      "space: toggle select",
+      "i: install selected",
+      "r: remove selected",
+      "z: undo last add/remove",
+      "L: run history",
+      "v: show SKILL",
+      "g: run",
+      "G: run options",
+      "u: check updates",
       "a: add skill",
       "d: doctor",
       "T: test popup",

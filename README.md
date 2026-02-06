@@ -1,6 +1,16 @@
-# OpenTUI for agr
+<div align="center">
 
-OpenTUI front-end for managing `agr` skills: browse `agr.toml`, install/remove skills, preview `SKILL.md`, and run skills via `agrx`. Skill discovery is based on `https://github.com/kasperjunge/agent-resources`.
+# OpenTUI for `agr` and `agrx`
+
+An OpenTUI interface for the `agr`/`agrx` CLI: view configured skills, trigger `agr` actions, preview `SKILL.md`, and run skills through `agrx`.
+
+[![PyPI](https://img.shields.io/pypi/v/agr-opentui?color=blue)](https://pypi.org/project/agr-opentui/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+</div>
+
+`agr-opentui` is an OpenTUI front-end for `agr`/`agrx`.
+The default discover source in this repo points to `https://github.com/kasperjunge/agent-resources`.
 
 ## Usage
 
@@ -159,6 +169,8 @@ If `skills.json` exists, the `Discover` tab will list its entries. It supports:
 
 - An array of strings or objects (`{ "label": "...", "handle": "...", "repo": "owner/repo" }`).
 - An object with `source` metadata and `skills` array (see `skills.json` in this repo).
+
+In this repository, `skills.json` is configured to source skills from `kasperjunge/agent-resources` (`agr.toml` on `main`).
 
 When a `source` is configured, the app checks the remote list periodically (about every 6 hours) and can update `skills.json` using the `u`/`U`/`s`/`S` controls.
 
