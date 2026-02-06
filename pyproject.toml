@@ -40,3 +40,6 @@ build-backend = "hatchling.build"
 artifacts = [
   "agr_opentui/bin/agr-opentui",
 ]
+
+[tool.hatch.build.hooks.custom]
+path = "hatch_build.py"
