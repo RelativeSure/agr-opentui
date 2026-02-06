@@ -15,7 +15,7 @@ on:
       create_tag:
         description: "Create and push git tag v<version> after bump"
         required: true
-        default: false
+        default: true
         type: boolean
 
 permissions:

@@ -60,11 +60,14 @@ Discover flow:
 
 ## Requirements
 
-- Bun 1.3.8+
-- Zig (required by OpenTUI build tooling)
+Runtime (using `agr-tui`):
 - Python 3.10+
 - `uv`
 - `agr` + `agrx` on your `PATH`
+
+Build/Development (working on this repo):
+- Bun 1.3.8+
+- Zig (required by OpenTUI build tooling)
 
 ## Install
 
@@ -148,7 +151,7 @@ git commit -m "chore: bump version to X.Y.Z"
 Alternative: use `.github/workflows/bump-version.yml` via **Actions → bump-version → Run workflow** and provide:
 - `version` (required): target version like `0.3.0`
 - `branch` (required): target branch to update (default `master`)
-- `create_tag` (required): when enabled, creates/pushes tag `v<version>` and creates a GitHub Release
+- `create_tag` (required, default enabled): creates/pushes tag `v<version>` and creates a GitHub Release
 
 ## Discover List (`skills.json`)
 
