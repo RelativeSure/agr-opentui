@@ -15,8 +15,7 @@ export async function submitAddInputWithUi(input: {
   }
 
   if (input.looksLikeHandle(value) && !input.hasKnownHandle(value)) {
-    input.showToast("Handle not found in source list");
-    return;
+    input.showToast("Handle not found in source list; adding anyway");
   }
 
   let result = await input.runCommand(["uv", "run", "agr", "add", value]);

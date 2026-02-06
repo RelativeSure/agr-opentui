@@ -25,7 +25,7 @@ describe("add flow service", () => {
     expect(loadCount).toBe(0);
   });
 
-  test("shows toast for unknown handle and does not run agr add", async () => {
+  test("warns for unknown handle but still runs agr add", async () => {
     const toasts: string[] = [];
     const commandCalls: string[][] = [];
 
@@ -44,8 +44,8 @@ describe("add flow service", () => {
       loadData: async () => {},
     });
 
-    expect(toasts).toEqual(["Handle not found in source list"]);
-    expect(commandCalls).toEqual([]);
+    expect(toasts).toEqual(["Handle not found in source list; adding anyway"]);
+    expect(commandCalls).toEqual([["uv", "run", "agr", "add", "org/repo/skill"]]);
   });
 
   test("retries with --overwrite when add reports existing skill", async () => {
