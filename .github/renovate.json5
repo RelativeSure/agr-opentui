@@ -11,6 +11,13 @@
   rangeStrategy: "bump",
   packageRules: [
     {
+      matchCategories: ["python"],
+      groupName: "all python dependencies",
+      groupSlug: "all-python-dependencies",
+      separateMajorMinor: false,
+      separateMinorPatch: false
+    },
+    {
       matchManagers: ["npm"],
       matchUpdateTypes: ["major"],
       automerge: false
