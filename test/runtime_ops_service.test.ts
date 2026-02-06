@@ -12,6 +12,7 @@ describe("runtime ops service", () => {
       cwd: () => "/repo",
       existsSync: () => true,
       readFileSync: () => "",
+      writeFileSync: () => {},
       now: () => Date.now(),
       setTimeout,
       spawn: () => {

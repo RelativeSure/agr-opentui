@@ -12,7 +12,45 @@ function streamFromText(text: string): ReadableStream<Uint8Array> {
 }
 
 describe("runCommandWithUi with injected deps", () => {
-  test("blocks agr add when agr.toml is missing", async () => {
+  test("auto-creates agr.toml and runs agr add when missing", async () => {
+    const state = createInitialState();
+    let spawnCalls = 0;
+    const writes: Array<{ path: string; data: string }> = [];
+    let hasConfig = false;
+
+    const result = await runCommandWithUi({
+      state,
+      args: ["uv", "run", "agr", "add", "org/repo/skill"],
+      cwd: "/repo",
+      deps: {
+        existsSync: () => hasConfig,
+        writeFileSync: (path, data) => {
+          writes.push({ path, data });
+          hasConfig = true;
+        },
+        env: () => ({}),
+        spawn: () => {
+          spawnCalls += 1;
+          return {
+            stdout: streamFromText(""),
+            stderr: streamFromText(""),
+            exited: Promise.resolve(0),
+          };
+        },
+      },
+      onRenderRunModal: () => {},
+      onSetStatus: () => {},
+      onShowToast: () => {},
+      onOpenVerify: () => {},
+      onLogEvent: () => {},
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(spawnCalls).toBe(1);
+    expect(writes).toEqual([{ path: "/repo/agr.toml", data: "dependencies = []\n" }]);
+  });
+
+  test("blocks agr remove when agr.toml is missing", async () => {
     const state = createInitialState();
     let spawnCalls = 0;
     const statuses: string[] = [];
@@ -20,10 +58,11 @@ describe("runCommandWithUi with injected deps", () => {
 
     const result = await runCommandWithUi({
       state,
-      args: ["uv", "run", "agr", "add", "org/repo/skill"],
+      args: ["uv", "run", "agr", "remove", "org/repo/skill"],
       cwd: "/repo",
       deps: {
         existsSync: () => false,
+        writeFileSync: () => {},
         env: () => ({}),
         spawn: () => {
           spawnCalls += 1;
@@ -62,6 +101,7 @@ describe("runCommandWithUi with injected deps", () => {
       cwd: "/repo",
       deps: {
         existsSync: () => true,
+        writeFileSync: () => {},
         env: () => ({}),
         spawn: () => {
           throw new Error("boom");
@@ -92,6 +132,7 @@ describe("runCommandWithUi with injected deps", () => {
       cwd: "/repo",
       deps: {
         existsSync: () => true,
+        writeFileSync: () => {},
         env: () => ({}),
         spawn: () => {
           throw "spawn exploded";
@@ -123,6 +164,7 @@ describe("runCommandWithUi with injected deps", () => {
       cwd: "/repo",
       deps: {
         existsSync: () => true,
+        writeFileSync: () => {},
         env: () => ({}),
         spawn: () => ({
           stdout: streamFromText(""),

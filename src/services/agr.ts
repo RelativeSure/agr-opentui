@@ -8,7 +8,7 @@ export async function runCommandWithUi(input: {
   state: State;
   args: string[];
   cwd: string;
-  deps?: Pick<AppDeps, "existsSync" | "env" | "spawn">;
+  deps?: Pick<AppDeps, "existsSync" | "writeFileSync" | "env" | "spawn">;
   onRenderRunModal: () => void;
   onSetStatus: (message: string) => void;
   onShowToast: (message: string) => void;
@@ -23,8 +23,27 @@ export async function runCommandWithUi(input: {
   input.onRenderRunModal();
   input.onSetStatus(`Running: ${state.lastCommand}`);
 
-  if (shouldBlockForMissingConfig(args, deps.existsSync(join(cwd, "agr.toml")))) {
-    const configPath = join(cwd, "agr.toml");
+  const configPath = join(cwd, "agr.toml");
+  const isAgrAdd = args[0] === "uv" && args[2] === "agr" && args[3] === "add";
+  if (isAgrAdd && !deps.existsSync(configPath)) {
+    try {
+      deps.writeFileSync(configPath, "dependencies = []\n", "utf-8");
+      state.missingConfig = false;
+      input.onLogEvent("Created agr.toml for first skill add");
+      input.onSetStatus("Initialized agr.toml");
+    } catch (error) {
+      state.busy = false;
+      state.missingConfig = true;
+      const message = error instanceof Error ? error.message : String(error);
+      input.onSetStatus(`Error: failed to create agr.toml (${message})`);
+      input.onShowToast("Failed to create agr.toml");
+      input.onLogEvent(`Run blocked: could not create agr.toml (${message})`);
+      input.onRenderRunModal();
+      return { exitCode: 1, stdout: "", stderr: `failed to create agr.toml: ${message}` };
+    }
+  }
+
+  if (shouldBlockForMissingConfig(args, deps.existsSync(configPath))) {
     if (!deps.existsSync(configPath)) {
       state.busy = false;
       state.missingConfig = true;
