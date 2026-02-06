@@ -1,6 +1,6 @@
 version = 1
 revision = 3
-requires-python = ">=3.14"
+requires-python = ">=3.14.3"
 
 [[package]]
 name = "agr"
@@ -19,7 +19,7 @@ wheels = [
 
 [[package]]
 name = "agr-opentui"
-version = "0.2.1"
+version = "0.2.2"
 source = { editable = "." }
 dependencies = [
     { name = "agr" },

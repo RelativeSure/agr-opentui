@@ -1,6 +1,6 @@
 [project]
 name = "agr-opentui"
-version = "0.2.1"
+version = "0.2.2"
 description = "OpenTUI frontend for agr"
 readme = "README.md"
 license = "MIT"
@@ -19,7 +19,7 @@ classifiers = [
   "Topic :: Software Development :: Build Tools",
   "Topic :: Utilities",
 ]
-requires-python = ">=3.14"
+requires-python = ">=3.14.3"
 dependencies = [
   "agr>=0.7.4",
 ]
