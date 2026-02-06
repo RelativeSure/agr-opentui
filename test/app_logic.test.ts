@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
   buildActionLines,
+  buildBridgeCommand,
   buildBridgeLoadSnapshot,
   buildDetailsLines,
   buildHelpLines,
@@ -95,6 +96,16 @@ describe("command guard and run args", () => {
       "--dry-run",
       "--verbose",
     ]);
+  });
+
+  test("uses launcher python for bridge when available", () => {
+    const args = buildBridgeCommand({ AGR_OPENTUI_LAUNCHER_PYTHON: "/tmp/tool-venv/bin/python3" });
+    expect(args).toEqual(["/tmp/tool-venv/bin/python3", "-m", "agr_opentui.bridge"]);
+  });
+
+  test("falls back to uv run python bridge command without launcher python", () => {
+    const args = buildBridgeCommand({});
+    expect(args).toEqual(["uv", "run", "python", "-m", "agr_opentui.bridge"]);
   });
 });
 
@@ -340,13 +351,13 @@ describe("help/action line snapshots", () => {
 
   test("discover help lines stay stable", () => {
     expect(buildHelpLines("Discover")).toEqual([
-      "Discover lists skills from skills.json.",
+      "Discover list is embedded in the binary.",
       "Press f to filter discover skills.",
       "Press p to pin/unpin selected discover skill.",
       "Select one and press i to add it.",
       "Bulk add/remove asks for confirmation.",
       "Press L to view run history.",
-      "Edit skills.json to change the source.",
+      "Rebuild binary to refresh discover source.",
     ]);
   });
 });

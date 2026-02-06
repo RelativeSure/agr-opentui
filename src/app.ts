@@ -13,6 +13,7 @@ import {
   getSkillSourceLabel as getSkillSourceLabelFromService,
   resolveSkillLabelWithUi,
 } from "./services/discover_labels";
+import { buildBridgeCommand as buildBridgeCommandFromLogic } from "./app_logic";
 import { loadPredefinedFromDisk, writeSkillsFileToDisk } from "./services/skills_file";
 import { filterInstalledPredefined as filterInstalledPredefinedService } from "./services/discover_filter";
 import { applyEnterInputMode, applyExitInputMode, processInputSequence } from "./services/input_mode";
@@ -31,7 +32,7 @@ import { renderRunOptionsWithUi } from "./services/render_run_options";
 import { renderTabsWithUi } from "./services/render_tabs";
 import { renderUpdateConfirmWithUi } from "./services/render_update_confirm";
 import { renderVerifyWithUi } from "./services/render_verify";
-import { createRunCommand, createRunDoctorChecks } from "./services/runtime_ops";
+import { createRunCommand, createRunDoctorChecks, createRunStartupPreflight } from "./services/runtime_ops";
 import { createUiFeedbackAdapter } from "./services/ui_feedback";
 import {
   getVisibleItems as getVisibleItemsService,
@@ -211,6 +212,10 @@ function getSkillSourceLabel(skill: PredefinedSkill): string {
 
 function normalizeHandleForAgr(handle: string): string {
   return normalizeHandleForAgrWithSource(handle, state.predefinedSource);
+}
+
+function bridgeCommand(): string[] {
+  return buildBridgeCommandFromLogic(defaultAppDeps.env());
 }
 
 function handleVariants(handle: string): string[] {
@@ -537,8 +542,17 @@ const runDoctorChecks = createRunDoctorChecks({
   openVerify,
   showToast,
 });
+const runStartupPreflight = createRunStartupPreflight({
+  setStatus: (message) => setStatus(message),
+  openVerify,
+});
+let startupPreflightDone = false;
 
 async function loadData(): Promise<void> {
+  if (!startupPreflightDone) {
+    startupPreflightDone = true;
+    await runStartupPreflight();
+  }
   await loadDataWithUi({
     state,
     cwd: defaultAppDeps.cwd(),
@@ -548,11 +562,16 @@ async function loadData(): Promise<void> {
     renderDetails,
     checkUpdates,
     writeSkillsFile: () => writeSkillsFile(state.updateRemote, state.predefinedSource),
-    runBridge: () => runCommandWithHistory(["uv", "run", "python", "-m", "agr_opentui.bridge"]),
+    runBridge: () => runCommandWithHistory(bridgeCommand()),
     setStatus,
     renderAll,
     refreshPreview,
   });
+}
+
+async function reloadData(): Promise<void> {
+  startupPreflightDone = false;
+  await loadData();
 }
 
 async function installSelected(): Promise<void> {
@@ -869,6 +888,7 @@ const handleKey = createHandleKey({
   openRunHistory,
   undoLastAction,
   loadData,
+  reloadData,
   enterInputMode,
   exitInputMode,
   handleInputChar,

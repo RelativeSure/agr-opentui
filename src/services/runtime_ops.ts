@@ -2,6 +2,7 @@ import type { AppDeps } from "../deps";
 import type { State } from "../state";
 import { runCommandWithUi } from "./agr";
 import { runDoctorChecks as runDoctorChecksRuntime } from "../runtime/doctor";
+import { runStartupPreflight as runStartupPreflightRuntime } from "../runtime/preflight";
 
 export type CommandResult = { exitCode: number; stdout: string; stderr: string };
 
@@ -55,5 +56,21 @@ export function createRunDoctorChecks(input: {
       setStatus: input.setStatus,
       openVerify: input.openVerify,
       showToast: input.showToast,
+    });
+}
+
+export function createRunStartupPreflight(input: {
+  spawn?: (args: string[]) => Promise<{ exitCode: number; stderr: string }>;
+  setStatus: (message: string) => void;
+  openVerify: (message: string, details?: string[]) => void;
+  runStartupPreflightImpl?: typeof runStartupPreflightRuntime;
+}): () => Promise<void> {
+  const runImpl = input.runStartupPreflightImpl ?? runStartupPreflightRuntime;
+  const spawn = input.spawn ?? spawnDoctorCommand;
+  return async () =>
+    runImpl({
+      spawn,
+      setStatus: input.setStatus,
+      openVerify: input.openVerify,
     });
 }

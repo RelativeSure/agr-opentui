@@ -21,7 +21,9 @@ def main() -> None:
             "Install a wheel that includes the binary for your platform."
         )
 
-    os.execv(str(binary), [str(binary), *sys.argv[1:]])
+    env = os.environ.copy()
+    env["AGR_OPENTUI_LAUNCHER_PYTHON"] = sys.executable
+    os.execve(str(binary), [str(binary), *sys.argv[1:]], env)
 
 
 if __name__ == "__main__":

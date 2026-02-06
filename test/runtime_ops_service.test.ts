@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createRunCommand, createRunDoctorChecks } from "../src/services/runtime_ops";
+import { createRunCommand, createRunDoctorChecks, createRunStartupPreflight } from "../src/services/runtime_ops";
 import { createInitialState } from "../src/state";
 import type { AppDeps } from "../src/deps";
 
@@ -63,6 +63,25 @@ describe("runtime ops service", () => {
 
     await runDoctorChecks();
     expect(receivedCwd).toBe("/repo");
+    expect(spawnCalled).toBe(true);
+  });
+
+  test("createRunStartupPreflight forwards runtime deps", async () => {
+    let spawnCalled = false;
+
+    const runStartupPreflight = createRunStartupPreflight({
+      spawn: async () => {
+        spawnCalled = true;
+        return { exitCode: 0, stderr: "" };
+      },
+      setStatus: () => {},
+      openVerify: () => {},
+      runStartupPreflightImpl: async (input) => {
+        await input.spawn(["uv", "--version"]);
+      },
+    });
+
+    await runStartupPreflight();
     expect(spawnCalled).toBe(true);
   });
 });

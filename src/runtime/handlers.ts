@@ -24,6 +24,7 @@ type HandleKeyDeps = {
   openRunHistory: () => void;
   undoLastAction: () => Promise<void>;
   loadData: () => Promise<void>;
+  reloadData: () => Promise<void>;
   enterInputMode: (mode: "none" | "add" | "prompt" | "args" | "filter", seed?: string) => void;
   exitInputMode: () => void;
   handleInputChar: (sequence: string) => void;
@@ -127,7 +128,7 @@ export function createHandleKey(deps: HandleKeyDeps): (sequence: string) => bool
     }
 
     if (sequence === "c") {
-      void deps.loadData();
+      void deps.reloadData();
       return true;
     }
 

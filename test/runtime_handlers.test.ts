@@ -16,6 +16,8 @@ function createDeps() {
     togglePinned: 0,
     openRunHistory: 0,
     undoLastAction: 0,
+    loadData: 0,
+    reloadData: 0,
     applyUpdatesAndSync: 0,
     scrollPreview: [] as number[],
     enterInputMode: [] as Array<{ mode: "none" | "add" | "prompt" | "args" | "filter"; seed?: string }>,
@@ -62,7 +64,12 @@ function createDeps() {
     undoLastAction: async () => {
       calls.undoLastAction += 1;
     },
-    loadData: async () => {},
+    loadData: async () => {
+      calls.loadData += 1;
+    },
+    reloadData: async () => {
+      calls.reloadData += 1;
+    },
     enterInputMode: (mode, seed) => {
       calls.enterInputMode.push({ mode, seed });
     },
@@ -222,6 +229,15 @@ describe("runtime key handler", () => {
     expect(calls.togglePinned).toBe(1);
     expect(calls.openRunHistory).toBe(1);
     expect(calls.undoLastAction).toBe(1);
+  });
+
+  test("c key triggers reload path", async () => {
+    const { calls, handleKey } = createDeps();
+
+    expect(handleKey("c")).toBe(true);
+    await Promise.resolve();
+    expect(calls.reloadData).toBe(1);
+    expect(calls.loadData).toBe(0);
   });
 
   test("invalid action key on active tab is ignored without blocking next input", () => {

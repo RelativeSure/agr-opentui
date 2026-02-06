@@ -222,6 +222,14 @@ export function buildRunSelectedArgs(input: {
   return args;
 }
 
+export function buildBridgeCommand(env: NodeJS.ProcessEnv): string[] {
+  const launcherPython = env.AGR_OPENTUI_LAUNCHER_PYTHON?.trim();
+  if (launcherPython) {
+    return [launcherPython, "-m", "agr_opentui.bridge"];
+  }
+  return ["uv", "run", "python", "-m", "agr_opentui.bridge"];
+}
+
 export function computeUpdateDiff(
   localSkills: PredefinedSkill[],
   remoteSkills: PredefinedSkill[],
@@ -248,7 +256,7 @@ export function buildDetailsLines(input: {
   if (input.tab === "Discover") {
     if (input.predefinedError) {
       lines.push(`Discover list error: ${input.predefinedError}`);
-      lines.push("Edit skills.json to fix.");
+      lines.push("Rebuild binary to refresh embedded discover data.");
       return lines;
     }
     if (!input.selectedSkill) {
@@ -260,7 +268,7 @@ export function buildDetailsLines(input: {
       } else if (input.hasSource) {
         lines.push("Waiting for discover list to load...");
       } else {
-        lines.push("Add entries to skills.json.");
+        lines.push("Discover list is embedded in the binary.");
       }
       return lines;
     }
@@ -313,13 +321,13 @@ export function buildHelpLines(tab: "Skills" | "Discover"): string[] {
     ];
   }
   return [
-    "Discover lists skills from skills.json.",
+    "Discover list is embedded in the binary.",
     "Press f to filter discover skills.",
     "Press p to pin/unpin selected discover skill.",
     "Select one and press i to add it.",
     "Bulk add/remove asks for confirmation.",
     "Press L to view run history.",
-    "Edit skills.json to change the source.",
+    "Rebuild binary to refresh discover source.",
   ];
 }
 

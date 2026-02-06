@@ -38,7 +38,7 @@ agr-opentui
 
 Tabs:
 - `Skills`: shows dependencies from `agr.toml` and install state.
-- `Discover`: shows skills from `skills.json` (optional).
+- `Discover`: shows skills embedded in the binary.
 
 Common keys:
 - `Tab` / `Shift+Tab`: switch tabs
@@ -137,16 +137,11 @@ agr-opentui
 
 `agr-opentui` itself does not need to contain your target repo's `agr.toml`.
 
-## Discover List (`skills.json`)
+## Discover List (Embedded)
 
-If `skills.json` exists, the `Discover` tab will list its entries. It supports:
+The `Discover` tab is bundled into the compiled binary from this repository's `skills.json` at build time.
 
-- An array of strings or objects (`{ "label": "...", "handle": "...", "repo": "owner/repo" }`).
-- An object with `source` metadata and `skills` array (see `skills.json` in this repo).
-
-In this repository, `skills.json` is configured to source skills from `kasperjunge/agent-resources` (`agr.toml` on `main`).
-
-When a `source` is configured, the app checks the remote list periodically (about every 6 hours) and can update `skills.json` using the `u`/`U`/`s`/`S` controls.
+To change the list, update `skills.json` in this repository and rebuild (`make build`).
 
 ## Troubleshooting
 
@@ -154,12 +149,14 @@ When a `source` is configured, the app checks the remote list periodically (abou
 - `uv not found`: install `uv` and ensure it’s on `PATH`.
 - `agr/agrx not found`: install `agr` and ensure it’s on `PATH`.
 - `python not found`: install Python 3.
-- `skills.json not found` or parse errors: fix the file format (array or `{ "source": ..., "skills": [...] }`).
+- Discover list out of date: update this repository's `skills.json` and rebuild the binary.
 - Discover list not updating: check the `source` URL/repo/branch/path and network access.
 - `SKILL.md` preview says “not found”: the skill may not ship a `SKILL.md` or the path is nonstandard.
 
 ## Notes
 
-- All actions run through `uv` (`uv run agr`, `uv run agrx`, and `uv run python -m agr_opentui.bridge`).
+- All actions run through `uv` (`uv run agr`, `uv run agrx`).
+- Bridge loading runs with the launcher Python when available (`AGR_OPENTUI_LAUNCHER_PYTHON`), with `uv run python -m agr_opentui.bridge` as fallback.
+- Startup runs a lightweight preflight for `uv`, `agr`, and `agrx`; press `d` to run full Doctor checks.
 - If `agr.toml` is missing in the current directory, install/remove/sync commands are blocked and a warning is shown.
 - Logs are written to `/tmp/agr-opentui.log`.
