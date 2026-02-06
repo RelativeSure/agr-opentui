@@ -58,6 +58,7 @@ export function createHandleKey(deps: HandleKeyDeps): (sequence: string) => bool
         PREVIEW_LINES: deps.PREVIEW_LINES,
         renderFooter: deps.renderFooter,
         renderHelp: deps.renderHelp,
+        renderRunModal: deps.renderRunModal,
         renderPreviewModal: deps.renderPreviewModal,
         scrollPreview: deps.scrollPreview,
         renderVerifyModal: deps.renderVerifyModal,

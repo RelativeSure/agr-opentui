@@ -16,8 +16,8 @@ describe("render preview service", () => {
       selectedDependency: null,
       overlay,
       title,
-      text: {
-        setText: (value) => {
+      code: {
+        set content(value) {
           body = value;
         },
       },
@@ -47,8 +47,8 @@ describe("render preview service", () => {
       selectedDependency: dep,
       overlay,
       title,
-      text: {
-        setText: (value) => {
+      code: {
+        set content(value) {
           body = value;
         },
       },

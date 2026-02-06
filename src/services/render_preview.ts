@@ -8,7 +8,7 @@ export function renderPreviewWithUi(input: {
   selectedDependency: Dependency | null;
   overlay: { visible: boolean };
   title: { content: unknown };
-  text: { setText: (value: string) => void };
+  code: { content: string };
 }): void {
   if (!input.previewOpen) {
     input.overlay.visible = false;
@@ -19,5 +19,5 @@ export function renderPreviewWithUi(input: {
   input.title.content = input.selectedDependency ? `SKILL.md: ${input.selectedDependency.identifier}` : "SKILL.md";
   const lines = input.previewLines.length > 0 ? input.previewLines : ["No SKILL.md found."];
   const slice = lines.slice(input.previewOffset, input.previewOffset + input.pageLines);
-  input.text.setText(slice.join("\n"));
+  input.code.content = slice.join("\n");
 }

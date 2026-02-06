@@ -111,7 +111,7 @@ const {
   helpLines,
   previewOverlay,
   previewTitle,
-  previewText,
+  previewCode,
   missingConfigOverlay,
   missingConfigLine1,
   missingConfigLine2,
@@ -419,7 +419,7 @@ function renderPreviewModal(): void {
     selectedDependency: selectedDependency(),
     overlay: previewOverlay,
     title: previewTitle,
-    text: previewText,
+    code: previewCode,
   });
 }
 

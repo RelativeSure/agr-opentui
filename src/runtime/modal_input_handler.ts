@@ -6,6 +6,7 @@ export function handleModalAndInputState(input: {
   PREVIEW_LINES: number;
   renderFooter: () => void;
   renderHelp: () => void;
+  renderRunModal: () => void;
   renderPreviewModal: () => void;
   scrollPreview: (delta: number) => void;
   renderVerifyModal: () => void;
@@ -69,6 +70,7 @@ export function handleModalAndInputState(input: {
       input.scrollPreview(input.PREVIEW_LINES);
       return true;
     }
+    return true;
   }
 
   if (state.verifyOpen) {
@@ -194,6 +196,19 @@ export function handleModalAndInputState(input: {
       );
       void input.applyUpdatesAndSync();
       return true;
+    }
+    return true;
+  }
+
+  if (state.busy || state.runTestOpen) {
+    if (state.runTestOpen && (sequence === "T" || sequence === "t" || sequence === "\x1b")) {
+      state.runTestOpen = false;
+      input.renderRunModal();
+      input.renderFooter();
+      return true;
+    }
+    if (sequence === "\u0003" || sequence === "q") {
+      input.quit();
     }
     return true;
   }

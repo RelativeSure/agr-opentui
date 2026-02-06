@@ -1,4 +1,4 @@
-import { BoxRenderable, InputRenderable, TextRenderable, TextareaRenderable, createCliRenderer } from "@opentui/core";
+import { BoxRenderable, CodeRenderable, InputRenderable, SyntaxStyle, TextRenderable, TextareaRenderable, createCliRenderer } from "@opentui/core";
 import { colors } from "../ui";
 
 export const PREVIEW_LINES = 13;
@@ -23,7 +23,7 @@ export type UiLayoutRefs = {
   helpLines: TextRenderable[];
   previewOverlay: BoxRenderable;
   previewTitle: TextRenderable;
-  previewText: TextareaRenderable;
+  previewCode: CodeRenderable;
   missingConfigOverlay: BoxRenderable;
   missingConfigLine1: TextRenderable;
   missingConfigLine2: TextRenderable;
@@ -243,27 +243,30 @@ export function createUiLayout(
   });
   const previewModal = new BoxRenderable(renderer, {
     width: 76,
-    height: 18,
+    height: 19,
     padding: 1,
     borderStyle: "double",
     borderColor: colors.borderStrong,
     backgroundColor: colors.panelRaised,
+    overflow: "hidden",
   });
   const previewTitle = new TextRenderable(renderer, { content: "SKILL.md", fg: colors.highlight });
-  const previewText = new TextareaRenderable(renderer, {
+  const previewCode = new CodeRenderable(renderer, {
     width: 72,
     height: PREVIEW_LINES,
-    initialValue: "",
-    wrapMode: "word",
-    showCursor: false,
+    content: "",
+    filetype: "markdown",
+    syntaxStyle: SyntaxStyle.create(),
+    conceal: true,
+    drawUnstyledText: true,
+    wrapMode: "none",
+    truncate: true,
     selectable: false,
     backgroundColor: colors.panelRaised,
-    textColor: colors.text,
   });
-  previewText.blur();
   const previewHint = new TextRenderable(renderer, { content: "Esc/q: close  PgUp/PgDn: scroll", fg: colors.dim });
   previewModal.add(previewTitle);
-  previewModal.add(previewText);
+  previewModal.add(previewCode);
   previewModal.add(previewHint);
   previewOverlay.add(previewModal);
   previewOverlay.visible = false;
@@ -483,7 +486,7 @@ export function createUiLayout(
     helpLines,
     previewOverlay,
     previewTitle,
-    previewText,
+    previewCode,
     missingConfigOverlay,
     missingConfigLine1,
     missingConfigLine2,

@@ -1,5 +1,6 @@
 BUN ?= bun
 PYTHON ?= python3
+UV ?= uv
 ENTRY ?= src/main.ts
 OUT_DIR ?= bin
 OUT ?= $(OUT_DIR)/agr-opentui
@@ -31,13 +32,13 @@ py-build: gen-embedded-skills
 	$(BUN) run build
 	cp $(OUT) agr_opentui/bin/agr-opentui
 	chmod +x agr_opentui/bin/agr-opentui
-	$(PYTHON) -m build
+	$(UV) run --with build $(PYTHON) -m build
 
 py-publish: py-build
-	$(PYTHON) -m twine upload $(DIST_DIR)/*
+	$(UV) run --with twine $(PYTHON) -m twine upload $(DIST_DIR)/*
 
 py-publish-test: py-build
-	$(PYTHON) -m twine upload --repository testpypi $(DIST_DIR)/*
+	$(UV) run --with twine $(PYTHON) -m twine upload --repository testpypi $(DIST_DIR)/*
 
 clean:
 	rm -rf $(OUT_DIR)

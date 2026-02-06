@@ -9,6 +9,7 @@ function createDeps() {
     renderActions: 0,
     renderFooter: 0,
     renderHelp: 0,
+    renderRunModal: 0,
     renderRunOptions: 0,
     renderPreviewModal: 0,
     installSelected: 0,
@@ -40,7 +41,9 @@ function createDeps() {
     renderHelp: () => {
       calls.renderHelp += 1;
     },
-    renderRunModal: () => {},
+    renderRunModal: () => {
+      calls.renderRunModal += 1;
+    },
     renderRunOptions: () => {
       calls.renderRunOptions += 1;
     },
@@ -167,12 +170,28 @@ describe("runtime key handler", () => {
 
     expect(handleKey("\x1b[A")).toBe(true);
     expect(handleKey("\x1b[6~")).toBe(true);
+    expect(handleKey("H")).toBe(true);
     expect(calls.scrollPreview).toEqual([-1, 13]);
+    expect(state.helpOpen).toBe(false);
     expect(state.previewOpen).toBe(true);
 
     expect(handleKey("q")).toBe(true);
     expect(state.previewOpen).toBe(false);
     expect(calls.renderPreviewModal).toBe(1);
+    expect(calls.renderFooter).toBe(1);
+  });
+
+  test("run popup swallows unrelated keys and allows closing test popup", () => {
+    const { state, calls, handleKey } = createDeps();
+    state.runTestOpen = true;
+
+    expect(handleKey("H")).toBe(true);
+    expect(state.helpOpen).toBe(false);
+    expect(state.runTestOpen).toBe(true);
+
+    expect(handleKey("T")).toBe(true);
+    expect(state.runTestOpen).toBe(false);
+    expect(calls.renderRunModal).toBe(1);
     expect(calls.renderFooter).toBe(1);
   });
 
