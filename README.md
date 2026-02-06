@@ -14,6 +14,26 @@ An OpenTUI interface for the `agr`/`agrx` CLI: view configured skills, trigger `
 `agr-opentui` is an OpenTUI front-end for `agr`/`agrx`.
 The default discover source in this repo points to `https://github.com/kasperjunge/agent-resources`.
 
+## Install from PyPI
+
+With `uv`:
+
+```bash
+uv tool install agr-opentui
+```
+
+With `pip`:
+
+```bash
+python -m pip install agr-opentui
+```
+
+Then run:
+
+```bash
+agr-tui
+```
+
 ## Usage
 
 Tabs:
