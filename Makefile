@@ -8,8 +8,12 @@ DIST_DIR ?= dist
 .PHONY: build clean
 .PHONY: test check
 .PHONY: py-build py-publish py-publish-test
+.PHONY: gen-embedded-skills
 
-build:
+gen-embedded-skills:
+	$(BUN) scripts/generate-embedded-skills.ts
+
+build: gen-embedded-skills
 	@mkdir -p $(OUT_DIR)
 	$(BUN) build $(ENTRY) --compile --outfile $(OUT)
 
@@ -20,7 +24,7 @@ check:
 	$(BUN) run typecheck
 	$(BUN) test
 
-py-build:
+py-build: gen-embedded-skills
 	rm -rf $(DIST_DIR)
 	mkdir -p agr_opentui/bin
 	rm -f agr_opentui/bin/agr-opentui

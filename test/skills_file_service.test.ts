@@ -16,17 +16,33 @@ describe("skills file service", () => {
     expect(result.predefinedError).toBeNull();
   });
 
-  test("reports missing skills.json", () => {
+  test("uses embedded defaults when skills.json is missing", () => {
     const result = loadPredefinedFromDisk({
       cwd: "/repo",
       existsSync: () => false,
       readFileSync: () => "",
-      normalizeSkills: () => [],
+      normalizeSkills: (items) => items.map((item) => ({ label: String(item), handle: String(item) })),
       normalizeSource: (source) => source ?? { format: "skills-json" },
     });
 
-    expect(result.predefinedError).toBe("skills.json not found");
-    expect(result.predefined).toEqual([]);
+    expect(result.predefinedError).toBeNull();
+    expect(result.predefined.length).toBeGreaterThan(0);
+  });
+
+  test("loads embedded payload when skills.json is missing", () => {
+    const result = loadPredefinedFromDisk({
+      cwd: "/repo",
+      existsSync: () => false,
+      readFileSync: () => "",
+      normalizeSkills: (items) => items.map((item) => ({ label: String(item), handle: String(item) })),
+      normalizeSource: (source) => source ?? { format: "skills-json" },
+      embedded: {
+        payload: ["org/repo/embedded"],
+      },
+    });
+
+    expect(result.predefinedError).toBeNull();
+    expect(result.predefined).toEqual([{ label: "org/repo/embedded", handle: "org/repo/embedded" }]);
   });
 
   test("writes object-format skills.json payload", () => {

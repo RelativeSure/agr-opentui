@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import type { PredefinedSkill } from "../app_logic";
 import type { SkillsFile, SkillsSource } from "../state";
+import { EMBEDDED_SKILLS_PAYLOAD } from "../generated/embedded_skills";
 
 export type LoadedSkillsData = {
   predefined: PredefinedSkill[];
@@ -15,19 +16,12 @@ export function loadPredefinedFromDisk(input: {
   readFileSync: (path: string, encoding: BufferEncoding) => string;
   normalizeSkills: (items: Array<string | PredefinedSkill>) => PredefinedSkill[];
   normalizeSource: (source?: SkillsSource | null) => SkillsSource;
+  embedded?: {
+    payload: unknown;
+    sourceName?: string;
+  };
 }): LoadedSkillsData {
-  const path = join(input.cwd, "skills.json");
-  try {
-    if (!input.existsSync(path)) {
-      return {
-        predefined: [],
-        predefinedError: "skills.json not found",
-        predefinedSource: null,
-        predefinedFormat: "array",
-      };
-    }
-    const raw = input.readFileSync(path, "utf-8");
-    const parsed = JSON.parse(raw) as unknown;
+  const decodePayload = (parsed: unknown): LoadedSkillsData => {
     if (Array.isArray(parsed)) {
       return {
         predefined: input.normalizeSkills(parsed as Array<string | PredefinedSkill>),
@@ -49,6 +43,40 @@ export function loadPredefinedFromDisk(input: {
     return {
       predefined: [],
       predefinedError: "skills.json must be an array or object",
+      predefinedSource: null,
+      predefinedFormat: "array",
+    };
+  };
+
+  const path = join(input.cwd, "skills.json");
+  try {
+    if (input.existsSync(path)) {
+      return decodePayload(JSON.parse(input.readFileSync(path, "utf-8")) as unknown);
+    }
+
+    const embedded = input.embedded ?? {
+      payload: EMBEDDED_SKILLS_PAYLOAD,
+      sourceName: "embedded skills",
+    };
+    if (embedded) {
+      try {
+        return decodePayload(embedded.payload);
+      } catch (error) {
+        return {
+          predefined: [],
+          predefinedError:
+            error instanceof Error
+              ? `${embedded.sourceName ?? "embedded skills"} invalid: ${error.message}`
+              : `${embedded.sourceName ?? "embedded skills"} invalid`,
+          predefinedSource: null,
+          predefinedFormat: "array",
+        };
+      }
+    }
+
+    return {
+      predefined: [],
+      predefinedError: "skills.json not found",
       predefinedSource: null,
       predefinedFormat: "array",
     };
