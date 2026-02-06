@@ -1,6 +1,6 @@
 # OpenTUI for agr
 
-OpenTUI front-end for managing `agr` skills: browse `agr.toml`, install/remove skills, preview `SKILL.md`, and run skills via `agrx`. Skill discovery is based on `https://github.com/kasperjunge/agent-resources`.
+OpenTUI front-end for managing `agr` skills: browse `agr.toml`, install/remove skills, preview `SKILL.md`, and run skills via `agrx`. Skill discovery is based on [https://github.com/kasperjunge/agent-resources](https://github.com/kasperjunge/agent-resources).
 
 ## Usage
 
@@ -60,22 +60,34 @@ Discover flow:
 
 ## Requirements
 
-Runtime (using `agr-tui`):
+### Runtime (using `agr-tui`):
 - Python 3.10+
 - `uv`
 - `agr` + `agrx` on your `PATH`
 
-Build/Development (working on this repo):
+### Build/Development (working on this repo):
 - Bun 1.3.8+
 - Zig (required by OpenTUI build tooling)
 
-## Install
+#### Build
+
+```bash
+bun run build
+```
+or
+```bash
+make build
+```
+This creates `bin/agr-tui`.
+
+
+#### Install
 
 ```bash
 bun install
 ```
 
-## Run
+#### Run
 
 ```bash
 bun run src/main.ts
@@ -92,66 +104,6 @@ agr-tui
 ```
 
 `agr-opentui` itself does not need to contain your target repo's `agr.toml`.
-
-## Build
-
-```bash
-bun run build
-```
-
-This creates `bin/agr-tui`.
-
-## Publish to PyPI
-
-One-time setup:
-- Create a `pypi` environment in this GitHub repo.
-- In your PyPI project settings, add this repo/workflow as a Trusted Publisher for `.github/workflows/publish-pypi.yml`.
-- Optional: add `testpypi` environment and TestPyPI Trusted Publisher too.
-
-Publish via GitHub Actions:
-- Release publish: creating a GitHub release triggers publish to PyPI.
-- Manual: run `publish-pypi` workflow and choose `pypi` or `testpypi`.
-
-Publish from local machine:
-
-```bash
-python -m pip install --upgrade build twine
-make py-publish        # Upload to PyPI
-make py-publish-test   # Upload to TestPyPI
-```
-
-## Bump Version
-
-Update package version before creating a release:
-
-1. Edit `pyproject.toml` and bump `[project].version`.
-2. Regenerate `uv.lock` so the local package entry matches:
-
-```bash
-uv lock
-```
-
-3. Run checks:
-
-```bash
-make check
-```
-
-4. Commit the version bump:
-
-```bash
-git add pyproject.toml uv.lock
-git commit -m "chore: bump version to X.Y.Z"
-```
-
-5. Create a GitHub release for `vX.Y.Z` (or manually run `publish-pypi` workflow).
-
-`publish-pypi.yml` runs automatically when a release is published.
-
-Alternative: use `.github/workflows/bump-version.yml` via **Actions → bump-version → Run workflow** and provide:
-- `version` (required): target version like `0.3.0`
-- `branch` (required): target branch to update (default `master`)
-- `create_tag` (required, default enabled): creates/pushes tag `v<version>` and creates a GitHub Release
 
 ## Discover List (`skills.json`)
 
@@ -171,7 +123,6 @@ When a `source` is configured, the app checks the remote list periodically (abou
 - `skills.json not found` or parse errors: fix the file format (array or `{ "source": ..., "skills": [...] }`).
 - Discover list not updating: check the `source` URL/repo/branch/path and network access.
 - `SKILL.md` preview says “not found”: the skill may not ship a `SKILL.md` or the path is nonstandard.
-- Copy to clipboard doesn’t work: install `pbcopy` (macOS), `wl-copy` (Wayland), or `xclip` (X11).
 
 ## Notes
 
