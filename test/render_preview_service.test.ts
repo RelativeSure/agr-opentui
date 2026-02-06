@@ -17,7 +17,7 @@ describe("render preview service", () => {
       overlay,
       title,
       code: {
-        set content(value) {
+        set content(value: string) {
           body = value;
         },
       },
@@ -48,7 +48,7 @@ describe("render preview service", () => {
       overlay,
       title,
       code: {
-        set content(value) {
+        set content(value: string) {
           body = value;
         },
       },

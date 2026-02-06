@@ -262,7 +262,7 @@ export function createUiLayout(
     wrapMode: "none",
     truncate: true,
     selectable: false,
-    backgroundColor: colors.panelRaised,
+    bg: colors.panelRaised,
   });
   const previewHint = new TextRenderable(renderer, { content: "Esc/q: close  PgUp/PgDn: scroll", fg: colors.dim });
   previewModal.add(previewTitle);
