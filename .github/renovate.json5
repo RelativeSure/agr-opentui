@@ -9,7 +9,13 @@
   schedule: ["before 6am on monday"],
   labels: ["dependencies"],
   rangeStrategy: "bump",
+  ignoreDeps: ["python"],
   packageRules: [
+    {
+      description: "Never auto-update declared Python runtime constraints",
+      matchDepNames: ["python"],
+      enabled: false
+    },
     {
       matchCategories: ["python"],
       groupName: "all python dependencies",

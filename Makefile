@@ -22,6 +22,11 @@ check:
 
 py-build:
 	rm -rf $(DIST_DIR)
+	mkdir -p agr_opentui/bin
+	rm -f agr_opentui/bin/agr-opentui
+	$(BUN) run build
+	cp $(OUT) agr_opentui/bin/agr-opentui
+	chmod +x agr_opentui/bin/agr-opentui
 	$(PYTHON) -m build
 
 py-publish: py-build

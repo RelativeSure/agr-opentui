@@ -15,14 +15,17 @@ classifiers = [
   "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.10",
   "Topic :: Software Development :: Build Tools",
   "Topic :: Utilities",
 ]
-requires-python = ">=3.14.3"
+requires-python = ">=3.10"
 dependencies = [
   "agr>=0.7.4",
 ]
+
+[project.scripts]
+agr-opentui = "agr_opentui.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/RelativeSure/agr-opentui"
@@ -32,3 +35,8 @@ Issues = "https://github.com/RelativeSure/agr-opentui/issues"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build]
+artifacts = [
+  "agr_opentui/bin/agr-opentui",
+]
