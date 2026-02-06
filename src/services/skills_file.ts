@@ -16,12 +16,13 @@ export function loadPredefinedFromDisk(input: {
   readFileSync: (path: string, encoding: BufferEncoding) => string;
   normalizeSkills: (items: Array<string | PredefinedSkill>) => PredefinedSkill[];
   normalizeSource: (source?: SkillsSource | null) => SkillsSource;
+  useEmbedded?: boolean;
   embedded?: {
     payload: unknown;
     sourceName?: string;
   };
 }): LoadedSkillsData {
-  const decodePayload = (parsed: unknown): LoadedSkillsData => {
+  const decodePayload = (parsed: unknown, includeSource: boolean): LoadedSkillsData => {
     if (Array.isArray(parsed)) {
       return {
         predefined: input.normalizeSkills(parsed as Array<string | PredefinedSkill>),
@@ -36,7 +37,7 @@ export function loadPredefinedFromDisk(input: {
       return {
         predefined,
         predefinedError: null,
-        predefinedSource: input.normalizeSource(obj.source),
+        predefinedSource: includeSource ? input.normalizeSource(obj.source) : null,
         predefinedFormat: "object",
       };
     }
@@ -48,19 +49,14 @@ export function loadPredefinedFromDisk(input: {
     };
   };
 
-  const path = join(input.cwd, "skills.json");
   try {
-    if (input.existsSync(path)) {
-      return decodePayload(JSON.parse(input.readFileSync(path, "utf-8")) as unknown);
-    }
-
     const embedded = input.embedded ?? {
       payload: EMBEDDED_SKILLS_PAYLOAD,
       sourceName: "embedded skills",
     };
-    if (embedded) {
+    if (input.useEmbedded !== false && embedded) {
       try {
-        return decodePayload(embedded.payload);
+        return decodePayload(embedded.payload, false);
       } catch (error) {
         return {
           predefined: [],
@@ -72,6 +68,11 @@ export function loadPredefinedFromDisk(input: {
           predefinedFormat: "array",
         };
       }
+    }
+
+    const path = join(input.cwd, "skills.json");
+    if (input.existsSync(path)) {
+      return decodePayload(JSON.parse(input.readFileSync(path, "utf-8")) as unknown, true);
     }
 
     return {

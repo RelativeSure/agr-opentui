@@ -9,6 +9,7 @@ describe("skills file service", () => {
       readFileSync: () => '["org/repo/one"]\n',
       normalizeSkills: (items) => items.map((item) => ({ label: String(item), handle: String(item) })),
       normalizeSource: (source) => source ?? { format: "skills-json" },
+      useEmbedded: false,
     });
 
     expect(result.predefined).toEqual([{ label: "org/repo/one", handle: "org/repo/one" }]);
@@ -43,6 +44,7 @@ describe("skills file service", () => {
 
     expect(result.predefinedError).toBeNull();
     expect(result.predefined).toEqual([{ label: "org/repo/embedded", handle: "org/repo/embedded" }]);
+    expect(result.predefinedSource).toBeNull();
   });
 
   test("writes object-format skills.json payload", () => {
