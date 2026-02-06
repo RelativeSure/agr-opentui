@@ -60,9 +60,9 @@ Discover flow:
 
 ## Requirements
 
-- Bun
+- Bun 1.3.8+
 - Zig (required by OpenTUI build tooling)
-- Python 3
+- Python 3.10+
 - `uv`
 - `agr` + `agrx` on your `PATH`
 
@@ -93,10 +93,29 @@ agr-tui
 ## Build
 
 ```bash
-make build
+bun run build
 ```
 
 This creates `bin/agr-tui`.
+
+## Publish to PyPI
+
+One-time setup:
+- Create a `pypi` environment in this GitHub repo.
+- In your PyPI project settings, add this repo/workflow as a Trusted Publisher for `.github/workflows/publish-pypi.yml`.
+- Optional: add `testpypi` environment and TestPyPI Trusted Publisher too.
+
+Publish via GitHub Actions:
+- Release publish: creating a GitHub release triggers publish to PyPI.
+- Manual: run `publish-pypi` workflow and choose `pypi` or `testpypi`.
+
+Publish from local machine:
+
+```bash
+python -m pip install --upgrade build twine
+make py-publish        # Upload to PyPI
+make py-publish-test   # Upload to TestPyPI
+```
 
 ## Discover List (`skills.json`)
 

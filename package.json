@@ -7,6 +7,7 @@
     "dev": "bun src/main.ts",
     "test": "bun test",
     "typecheck": "bunx tsc --noEmit",
+    "build": "make build",
     "check": "bun run typecheck && bun test"
   },
   "dependencies": {
