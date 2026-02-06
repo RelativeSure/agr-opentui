@@ -4,7 +4,7 @@ version = "0.2.0"
 description = "OpenTUI frontend for agr"
 requires-python = ">=3.14.3"
 dependencies = [
-  "agr>=0.7.3",
+  "agr>=0.7.4",
 ]
 
 [build-system]
