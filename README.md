@@ -34,6 +34,12 @@ Then run:
 agr-opentui
 ```
 
+Check installed version:
+
+```bash
+agr-opentui --version
+```
+
 ## Usage
 
 Tabs:
