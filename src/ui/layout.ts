@@ -95,7 +95,7 @@ export function createUiLayout(
     backgroundColor: colors.panelAlt,
   });
 
-  const leftTitle = new TextRenderable(renderer, { content: "Skills", fg: colors.highlight });
+  const leftTitle = new TextRenderable(renderer, { content: "SKILLS", fg: colors.highlight });
   const listLines: TextRenderable[] = [];
   const listRows = 17;
   for (let i = 0; i < listRows; i += 1) {

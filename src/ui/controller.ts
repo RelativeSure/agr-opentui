@@ -80,7 +80,10 @@ export function buildListRows(input: {
   getSkillSourceLabel: (skill: PredefinedSkill) => string;
 }): { title: string; selectedIndex: number; rows: UiListRow[] } {
   const nextSelectedIndex = clampSelection(input.selectedIndex, input.visible.length);
-  const title = input.tab === "Discover" ? "Discover" : "SKILLS";
+  const title = input.tab === "Discover" ? "DISCOVER" : "SKILLS";
+  const maxStart = Math.max(0, input.visible.length - input.rowCount);
+  const centeredStart = Math.max(0, nextSelectedIndex - Math.floor(input.rowCount / 2));
+  const windowStart = Math.min(centeredStart, maxStart);
 
   let nameCounts: Record<string, number> | null = null;
   if (input.tab === "Discover") {
@@ -94,13 +97,14 @@ export function buildListRows(input: {
 
   const rows: UiListRow[] = [];
   for (let i = 0; i < input.rowCount; i += 1) {
-    const item = input.visible[i];
+    const absoluteIndex = windowStart + i;
+    const item = input.visible[absoluteIndex];
     if (!item) {
       rows.push({ content: "", tone: "text", backgroundTone: "panelAlt" });
       continue;
     }
 
-    const selected = i === nextSelectedIndex;
+    const selected = absoluteIndex === nextSelectedIndex;
     const marker = selected ? ">" : " ";
 
     if (input.tab === "Discover") {

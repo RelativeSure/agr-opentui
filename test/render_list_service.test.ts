@@ -51,6 +51,7 @@ describe("render list service", () => {
       { label: "two", handle: "org/repo/two", repo: "org/repo" },
     ];
     const resolved: string[] = [];
+    let title = "";
     const lines = [
       { content: "", fg: "", bg: "" },
       { content: "", fg: "", bg: "" },
@@ -68,10 +69,47 @@ describe("render list service", () => {
         resolved.push(skill.handle);
       },
       setSelectedIndex: () => {},
-      setTitle: () => {},
+      setTitle: (value) => {
+        title = value;
+      },
       lines,
     });
 
     expect(resolved).toEqual(["org/repo/one", "org/repo/two"]);
+    expect(title).toBe("DISCOVER");
+  });
+
+  test("scrolls list viewport as selection moves", () => {
+    const deps: Dependency[] = Array.from({ length: 7 }, (_, i) => ({
+      identifier: `org/repo/${i + 1}`,
+      handle: `org/repo/${i + 1}`,
+      path: null,
+      is_local: false,
+      installed: false,
+    }));
+    const lines = [
+      { content: "", fg: "", bg: "" },
+      { content: "", fg: "", bg: "" },
+      { content: "", fg: "", bg: "" },
+    ];
+
+    renderListWithUi({
+      tab: "Skills",
+      visible: deps,
+      selectedIndex: 5,
+      rowCount: 3,
+      isSelectedDependency: () => false,
+      getSkillDisplayLabel: () => "",
+      getSkillSourceLabel: () => "",
+      resolveSkillLabel: async () => {},
+      setSelectedIndex: () => {},
+      setTitle: () => {},
+      lines,
+    });
+
+    expect(String(lines[0].content)).toContain("org/repo/5");
+    expect(String(lines[1].content)).toContain("org/repo/6");
+    expect(String(lines[2].content)).toContain("org/repo/7");
+    expect(String(lines[1].content).startsWith(">")).toBe(true);
   });
 });
