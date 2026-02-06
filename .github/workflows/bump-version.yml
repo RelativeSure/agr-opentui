@@ -1,0 +1,116 @@
+name: bump-version
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "New version (example: 0.3.0)"
+        required: true
+        type: string
+      branch:
+        description: "Branch to update"
+        required: true
+        default: "master"
+        type: string
+      create_tag:
+        description: "Create and push git tag v<version> after bump"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout target branch
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ inputs.branch }}
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14.3"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Validate and apply version bump
+        env:
+          NEW_VERSION: ${{ inputs.version }}
+        run: |
+          python - <<'PY'
+          import os
+          import pathlib
+          import re
+
+          new_version = os.environ["NEW_VERSION"].strip()
+          if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?", new_version):
+            raise SystemExit(
+              f"Invalid version '{new_version}'. Expected SemVer-like format, e.g. 0.3.0 or 0.3.0-rc.1"
+            )
+
+          pyproject_path = pathlib.Path("pyproject.toml")
+          content = pyproject_path.read_text(encoding="utf-8")
+          updated, count = re.subn(
+            r'(?m)^version = ".*"$',
+            f'version = "{new_version}"',
+            content,
+            count=1,
+          )
+          if count != 1:
+            raise SystemExit("Could not update [project].version in pyproject.toml")
+          pyproject_path.write_text(updated, encoding="utf-8")
+          PY
+
+      - name: Regenerate uv.lock
+        run: uv lock
+
+      - name: Commit and push
+        env:
+          NEW_VERSION: ${{ inputs.version }}
+          TARGET_BRANCH: ${{ inputs.branch }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet -- pyproject.toml uv.lock; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git add pyproject.toml uv.lock
+          git commit -m "chore: bump version to ${NEW_VERSION}"
+          git push origin "HEAD:${TARGET_BRANCH}"
+
+      - name: Create and push version tag
+        if: inputs.create_tag
+        env:
+          NEW_VERSION: ${{ inputs.version }}
+        run: |
+          TAG="v${NEW_VERSION}"
+          if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+            echo "Tag ${TAG} already exists locally."
+            exit 1
+          fi
+
+          if git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null; then
+            echo "Tag ${TAG} already exists on origin."
+            exit 1
+          fi
+
+          git tag -a "${TAG}" -m "Release ${TAG}"
+          git push origin "${TAG}"
+
+      - name: Create GitHub release
+        if: inputs.create_tag
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
+        with:
+          tag_name: v${{ inputs.version }}
+          name: v${{ inputs.version }}
+          generate_release_notes: true
+          prerelease: ${{ contains(inputs.version, '-') }}

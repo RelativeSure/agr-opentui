@@ -117,6 +117,39 @@ make py-publish        # Upload to PyPI
 make py-publish-test   # Upload to TestPyPI
 ```
 
+## Bump Version
+
+Update package version before creating a release:
+
+1. Edit `pyproject.toml` and bump `[project].version`.
+2. Regenerate `uv.lock` so the local package entry matches:
+
+```bash
+uv lock
+```
+
+3. Run checks:
+
+```bash
+make check
+```
+
+4. Commit the version bump:
+
+```bash
+git add pyproject.toml uv.lock
+git commit -m "chore: bump version to X.Y.Z"
+```
+
+5. Create a GitHub release for `vX.Y.Z` (or manually run `publish-pypi` workflow).
+
+`publish-pypi.yml` runs automatically when a release is published.
+
+Alternative: use `.github/workflows/bump-version.yml` via **Actions → bump-version → Run workflow** and provide:
+- `version` (required): target version like `0.3.0`
+- `branch` (required): target branch to update (default `master`)
+- `create_tag` (required): when enabled, creates/pushes tag `v<version>` and creates a GitHub Release
+
 ## Discover List (`skills.json`)
 
 If `skills.json` exists, the `Discover` tab will list its entries. It supports:
