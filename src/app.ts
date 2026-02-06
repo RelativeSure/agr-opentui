@@ -42,6 +42,7 @@ import {
   toggleSelectedId,
   type ActiveTab,
 } from "./services/selection";
+import { computeVisibleItems } from "./services/visible_items";
 import {
   getSkillsSource as getSkillsSourceFromState,
   handleVariants as buildHandleVariants,
@@ -275,25 +276,18 @@ function getVisibleItems(): Array<Dependency | PredefinedSkill> {
     dependencies: getDependencies(),
     discoverSkills: filterInstalledPredefined(getPredefinedSkills()),
   });
-  const filtered = state.filterQuery
-    ? base.filter((item) => {
-        if (getActiveTabTyped() === "Discover") {
-          const skill = item as PredefinedSkill;
-          return `${getSkillDisplayLabel(skill)} ${skill.handle} ${skill.repo ?? ""}`
-            .toLowerCase()
-            .includes(state.filterQuery.toLowerCase());
-        }
-        const dep = item as Dependency;
-        return `${dep.identifier} ${dep.handle ?? ""} ${dep.path ?? ""}`.toLowerCase().includes(state.filterQuery.toLowerCase());
-      })
-    : base;
-  const rank = (item: Dependency | PredefinedSkill): number => {
-    if (getActiveTabTyped() === "Discover") {
-      return state.pinnedIds.has(`discover:${(item as PredefinedSkill).handle}`) ? 0 : 1;
-    }
-    return state.pinnedIds.has(`skills:${(item as Dependency).identifier}`) ? 0 : 1;
-  };
-  return [...filtered].sort((a, b) => rank(a) - rank(b));
+  const tab = getActiveTabTyped();
+  return computeVisibleItems({
+    tab,
+    baseItems: base,
+    filterQuery: state.filterQuery,
+    discoverText: (skill) => `${getSkillDisplayLabel(skill)} ${skill.handle} ${skill.repo ?? ""}`,
+    dependencyText: (dep) => `${dep.identifier} ${dep.handle ?? ""} ${dep.path ?? ""}`,
+    isPinned: (item) =>
+      tab === "Discover"
+        ? state.pinnedIds.has(`discover:${(item as PredefinedSkill).handle}`)
+        : state.pinnedIds.has(`skills:${(item as Dependency).identifier}`),
+  });
 }
 
 function selectedDependency(): Dependency | null {

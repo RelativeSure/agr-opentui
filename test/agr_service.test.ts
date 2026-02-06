@@ -82,6 +82,35 @@ describe("runCommandWithUi with injected deps", () => {
     expect(statuses.at(-1)).toBe("Command failed (spawn): boom");
   });
 
+  test("spawn failures with non-Error values are stringified", async () => {
+    const state = createInitialState();
+    const statuses: string[] = [];
+
+    const result = await runCommandWithUi({
+      state,
+      args: ["uv", "run", "agrx", "org/repo/skill"],
+      cwd: "/repo",
+      deps: {
+        existsSync: () => true,
+        env: () => ({}),
+        spawn: () => {
+          throw "spawn exploded";
+        },
+      },
+      onRenderRunModal: () => {},
+      onSetStatus: (message) => {
+        statuses.push(message);
+      },
+      onShowToast: () => {},
+      onOpenVerify: () => {},
+      onLogEvent: () => {},
+    });
+
+    expect(result.exitCode).toBe(127);
+    expect(result.stderr).toBe("spawn exploded");
+    expect(statuses.at(-1)).toBe("Command failed (spawn): spawn exploded");
+  });
+
   test("stderr content maps to user-facing failure status", async () => {
     const state = createInitialState();
     const statuses: string[] = [];

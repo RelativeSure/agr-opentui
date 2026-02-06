@@ -268,6 +268,11 @@ describe("integration smoke: mocked command run", () => {
     expect(result.status).toBe(mapCommandFailureStatus("uv: command not found", 127));
   });
 
+  test("maps agrx not found before generic agr not found", () => {
+    const status = mapCommandFailureStatus("agrx: command not found", 127);
+    expect(status).toBe("Command failed: agrx not found (install agr or update PATH) (press c to retry)");
+  });
+
   test("cwd-focused config check only blocks when agr.toml is missing in that cwd", () => {
     const dir = mkdtempSync(join(tmpdir(), "agr-opentui-cwd-"));
     const args = ["uv", "run", "agr", "add", "org/repo/skill"];

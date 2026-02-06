@@ -58,4 +58,49 @@ describe("discover labels service", () => {
     expect(pending.has("org/repo/skill")).toBe(false);
     expect(resolvedCalls).toBe(1);
   });
+
+  test("times out slow requests and clears pending", async () => {
+    const cache: Record<string, string> = {};
+    const pending = new Set<string>();
+    const start = Date.now();
+
+    const ok = await resolveSkillLabelWithUi({
+      skill: { label: "S", handle: "org/repo/skill", repo: "org/repo" },
+      predefinedSource: null,
+      skillLabelCache: cache,
+      skillLabelPending: pending,
+      timeoutMs: 10,
+      fetchFn: async (_url, init) =>
+        await new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => {
+            reject(new Error("aborted"));
+          });
+        }),
+    });
+
+    expect(ok).toBe(false);
+    expect(cache["org/repo/skill"]).toBeUndefined();
+    expect(pending.has("org/repo/skill")).toBe(false);
+    expect(Date.now() - start).toBeLessThan(500);
+  });
+
+  test("stops when aborted", async () => {
+    const cache: Record<string, string> = {};
+    const pending = new Set<string>();
+    const controller = new AbortController();
+    controller.abort();
+
+    const ok = await resolveSkillLabelWithUi({
+      skill: { label: "S", handle: "org/repo/skill", repo: "org/repo" },
+      predefinedSource: null,
+      skillLabelCache: cache,
+      skillLabelPending: pending,
+      abortSignal: controller.signal,
+      fetchFn: async () => new Response("---\nname: Should Not Resolve\n---\n", { status: 200 }),
+    });
+
+    expect(ok).toBe(false);
+    expect(cache["org/repo/skill"]).toBeUndefined();
+    expect(pending.has("org/repo/skill")).toBe(false);
+  });
 });

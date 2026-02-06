@@ -157,6 +157,9 @@ export function mapCommandFailureStatus(stderr: string, exitCode: number): strin
   if (stderrLower.includes("python") && stderrLower.includes("not found")) {
     return "Command failed: python not found (install Python or update PATH) (press c to retry)";
   }
+  if (stderrLower.includes("agrx") && stderrLower.includes("not found")) {
+    return "Command failed: agrx not found (install agr or update PATH) (press c to retry)";
+  }
   if (stderrLower.includes("agr") && stderrLower.includes("not found")) {
     return "Command failed: agr not found (install agr or update PATH) (press c to retry)";
   }

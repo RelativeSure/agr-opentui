@@ -1,5 +1,6 @@
 import type { PredefinedSkill } from "../app_logic";
 import type { State } from "../state";
+import { handleModalAndInputState } from "./modal_input_handler";
 
 type HandleKeyDeps = {
   state: State;
@@ -46,198 +47,34 @@ type HandleKeyDeps = {
 };
 
 export function createHandleKey(deps: HandleKeyDeps): (sequence: string) => boolean {
-  const closeModal = (close: () => void, render: () => void): void => {
-    close();
-    render();
-    deps.renderFooter();
-  };
-
   return function handleKey(sequence: string): boolean {
     const state = deps.state;
 
-    if (state.helpOpen) {
-      if (sequence === "H" || sequence === "h" || sequence === "\x1b") {
-        closeModal(
-          () => {
-            state.helpOpen = false;
-          },
-          deps.renderHelp,
-        );
-        return true;
-      }
-      return true;
-    }
-    if (state.previewOpen) {
-      if (sequence === "\x1b") {
-        closeModal(
-          () => {
-            state.previewOpen = false;
-          },
-          deps.renderPreviewModal,
-        );
-        return true;
-      }
-      if (sequence === "q" || sequence === "\x1b[O") {
-        closeModal(
-          () => {
-            state.previewOpen = false;
-          },
-          deps.renderPreviewModal,
-        );
-        return true;
-      }
-      if (sequence === "\x1b[A") {
-        deps.scrollPreview(-1);
-        return true;
-      }
-      if (sequence === "\x1b[B") {
-        deps.scrollPreview(1);
-        return true;
-      }
-      if (sequence === "\x1b[5~") {
-        deps.scrollPreview(-deps.PREVIEW_LINES);
-        return true;
-      }
-      if (sequence === "\x1b[6~") {
-        deps.scrollPreview(deps.PREVIEW_LINES);
-        return true;
-      }
-    }
-    if (state.verifyOpen) {
-      if (state.verifyConfirmAction) {
-        if (sequence === "y" || sequence === "Y") {
-          const action = state.verifyConfirmAction;
-          state.verifyConfirmAction = null;
-          state.verifyOpen = false;
-          deps.renderVerifyModal();
-          deps.renderFooter();
-          if (action === "install_bulk") {
-            void deps.installSelectedBulk();
-          } else if (action === "remove_bulk") {
-            void deps.removeSelectedBulk();
-          }
-          return true;
-        }
-        if (sequence === "n" || sequence === "N" || sequence === "\x1b") {
-          state.verifyConfirmAction = null;
-          state.verifyOpen = false;
-          deps.renderVerifyModal();
-          deps.renderFooter();
-          return true;
-        }
-        return true;
-      }
-      if (sequence === "\x1b") {
-        closeModal(
-          () => {
-            state.verifyOpen = false;
-          },
-          deps.renderVerifyModal,
-        );
-        return true;
-      }
-      return true;
-    }
-    if (state.missingConfigOpen) {
-      if (sequence === "\x1b") {
-        closeModal(
-          () => {
-            state.missingConfigOpen = false;
-          },
-          deps.renderMissingConfig,
-        );
-        return true;
-      }
-      return true;
-    }
-    if (state.runOptionsOpen) {
-      if (sequence === "\x1b") {
-        closeModal(
-          () => {
-            state.runOptionsOpen = false;
-          },
-          deps.renderRunOptions,
-        );
-        return true;
-      }
-      if (sequence === "\r" || sequence === "\n") {
-        closeModal(
-          () => {
-            state.runOptionsOpen = false;
-          },
-          deps.renderRunOptions,
-        );
-        void deps.runSelected();
-        return true;
-      }
-      if (sequence === "t") {
-        deps.cycleTool();
-        deps.renderRunOptions();
-        return true;
-      }
-      if (sequence === "u") {
-        state.interactive = !state.interactive;
-        deps.renderRunOptions();
-        return true;
-      }
-      if (sequence === "p") {
-        state.runOptionsOpen = false;
-        deps.renderRunOptions();
-        deps.enterInputMode("prompt", state.promptBuffer);
-        return true;
-      }
-      if (sequence === "e") {
-        state.runOptionsOpen = false;
-        deps.renderRunOptions();
-        deps.enterInputMode("args", state.argsBuffer);
-        return true;
-      }
-      return true;
-    }
-    if (state.confirmUpdateOpen) {
-      if (sequence === "y" || sequence === "Y") {
-        closeModal(
-          () => {
-            state.confirmUpdateOpen = false;
-          },
-          deps.renderUpdateConfirm,
-        );
-        void deps.applyUpdates();
-        return true;
-      }
-      if (sequence === "n" || sequence === "N" || sequence === "\x1b") {
-        closeModal(
-          () => {
-            state.confirmUpdateOpen = false;
-          },
-          deps.renderUpdateConfirm,
-        );
-        return true;
-      }
-      if (sequence === "s" || sequence === "S") {
-        closeModal(
-          () => {
-            state.confirmUpdateOpen = false;
-          },
-          deps.renderUpdateConfirm,
-        );
-        void deps.applyUpdatesAndSync();
-        return true;
-      }
-      return true;
-    }
-    if (state.inputMode === "add") {
-      if (sequence === "\u0003") {
-        deps.quit();
-      }
-      if (sequence === "\x1b") {
-        deps.exitInputMode();
-        return true;
-      }
-      return false;
-    }
-    if (state.inputMode !== "none") {
-      deps.handleInputChar(sequence);
+    if (
+      handleModalAndInputState({
+        state,
+        sequence,
+        PREVIEW_LINES: deps.PREVIEW_LINES,
+        renderFooter: deps.renderFooter,
+        renderHelp: deps.renderHelp,
+        renderPreviewModal: deps.renderPreviewModal,
+        scrollPreview: deps.scrollPreview,
+        renderVerifyModal: deps.renderVerifyModal,
+        installSelectedBulk: deps.installSelectedBulk,
+        removeSelectedBulk: deps.removeSelectedBulk,
+        renderMissingConfig: deps.renderMissingConfig,
+        renderRunOptions: deps.renderRunOptions,
+        runSelected: deps.runSelected,
+        cycleTool: deps.cycleTool,
+        enterInputMode: deps.enterInputMode,
+        applyUpdates: deps.applyUpdates,
+        applyUpdatesAndSync: deps.applyUpdatesAndSync,
+        renderUpdateConfirm: deps.renderUpdateConfirm,
+        exitInputMode: deps.exitInputMode,
+        handleInputChar: deps.handleInputChar,
+        quit: deps.quit,
+      })
+    ) {
       return true;
     }
 

@@ -97,20 +97,43 @@ export async function resolveSkillLabelWithUi(input: {
   skillLabelCache: Record<string, string>;
   skillLabelPending: Set<string>;
   fetchFn?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+  timeoutMs?: number;
+  abortSignal?: AbortSignal;
   onResolved?: () => void;
 }): Promise<boolean> {
   const fetchFn = input.fetchFn ?? fetch;
+  const timeoutMs = input.timeoutMs ?? 1500;
   const handle = input.skill.handle;
   if (!handle || input.skillLabelCache[handle] || input.skillLabelPending.has(handle)) {
     return false;
   }
 
+  const fetchWithTimeout = async (url: string): Promise<Response> => {
+    const controller = new AbortController();
+    const onAbort = () => {
+      controller.abort();
+    };
+    input.abortSignal?.addEventListener("abort", onAbort, { once: true });
+    const timeout = setTimeout(() => {
+      controller.abort();
+    }, timeoutMs);
+    try {
+      return await fetchFn(url, { signal: controller.signal });
+    } finally {
+      clearTimeout(timeout);
+      input.abortSignal?.removeEventListener("abort", onAbort);
+    }
+  };
+
   input.skillLabelPending.add(handle);
   try {
     const urls = buildSkillMdUrls({ skill: input.skill, predefinedSource: input.predefinedSource });
     for (const url of urls) {
+      if (input.abortSignal?.aborted) {
+        return false;
+      }
       try {
-        const res = await fetchFn(url);
+        const res = await fetchWithTimeout(url);
         if (!res.ok) {
           continue;
         }
@@ -122,6 +145,9 @@ export async function resolveSkillLabelWithUi(input: {
           return true;
         }
       } catch {
+        if (input.abortSignal?.aborted) {
+          return false;
+        }
         // ignore and try next URL
       }
     }
