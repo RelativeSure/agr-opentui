@@ -87,12 +87,11 @@ jobs:
 
   publish-pypi:
     if: |
-      needs.build.result == 'success' &&
       (
         github.event_name == 'release' ||
         (
           github.event_name == 'workflow_dispatch' &&
-          github.event.inputs.target != 'testpypi'
+          inputs.target != 'testpypi'
         )
       )
     needs: build
@@ -113,9 +112,8 @@ jobs:
 
   publish-testpypi:
     if: |
-      needs.build.result == 'success' &&
       github.event_name == 'workflow_dispatch' &&
-      github.event.inputs.target == 'testpypi'
+      inputs.target == 'testpypi'
     needs: build
     runs-on: ubuntu-latest
     permissions:
