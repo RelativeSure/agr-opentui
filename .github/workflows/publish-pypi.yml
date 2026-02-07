@@ -87,6 +87,8 @@ jobs:
 
   publish-pypi:
     if: |
+      always() &&
+      needs.build.result == 'success' &&
       (
         github.event_name == 'release' ||
         (
@@ -112,6 +114,8 @@ jobs:
 
   publish-testpypi:
     if: |
+      always() &&
+      needs.build.result == 'success' &&
       github.event_name == 'workflow_dispatch' &&
       inputs.target == 'testpypi'
     needs: build
