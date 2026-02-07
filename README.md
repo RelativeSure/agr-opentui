@@ -68,6 +68,7 @@ Skills tab keys:
 
 Discover tab keys:
 - `i`: add selected
+- `v`: preview `SKILL.md`
 - `y`: copy handle/repo to clipboard
 - `a`: add skill
 - `c`: reload config
@@ -94,7 +95,7 @@ Bulk actions:
 Discover flow:
 - `Tab` to `Discover`
 - Arrow keys to select
-- `i` to add, `y` to copy handle
+- `v` to preview, `i` to add, `y` to copy handle
 
 ## Requirements
 

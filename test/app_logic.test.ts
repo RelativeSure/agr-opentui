@@ -355,9 +355,30 @@ describe("help/action line snapshots", () => {
       "Press f to filter discover skills.",
       "Press p to pin/unpin selected discover skill.",
       "Select one and press i to add it.",
+      "Press v to preview SKILL.md.",
       "Bulk add/remove asks for confirmation.",
       "Press L to view run history.",
       "Rebuild binary to refresh discover source.",
+    ]);
+  });
+
+  test("discover action lines stay stable", () => {
+    expect(buildActionLines("Discover")).toEqual([
+      "f: filter list",
+      "p: pin selected",
+      "i: add selected",
+      "z: undo last add/remove",
+      "L: run history",
+      "v: show SKILL",
+      "y: copy handle/repo",
+      "a: add skill",
+      "d: doctor",
+      "T: test popup",
+      "c: reload config",
+      "H: help",
+      "Tab: next panel",
+      "Arrow keys: move",
+      "q: quit",
     ]);
   });
 });

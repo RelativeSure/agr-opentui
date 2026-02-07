@@ -44,6 +44,7 @@ export type State = {
   busy: boolean;
   previewAll: string[];
   previewOffset: number;
+  previewTarget: string | null;
   helpOpen: boolean;
   predefined: PredefinedSkill[];
   predefinedError: string | null;
@@ -103,6 +104,7 @@ export function createInitialState(): State {
     busy: false,
     previewAll: [],
     previewOffset: 0,
+    previewTarget: null,
     helpOpen: false,
     predefined: [],
     predefinedError: null,

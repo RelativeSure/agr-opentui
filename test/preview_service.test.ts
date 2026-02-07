@@ -40,4 +40,38 @@ describe("preview service", () => {
 
     expect(lines).toEqual([]);
   });
+
+  test("loads discover preview from first successful SKILL.md URL", async () => {
+    const lines = await loadPreviewLines({
+      discoverSkill: {
+        label: "Code Review",
+        handle: "kasperjunge/agent-resources/development/workflow/code-review",
+        repo: "kasperjunge/agent-resources",
+      },
+      fetchText: async (url) => {
+        if (url.includes("/main/") && url.endsWith("/SKILL.md")) {
+          return "line one\nline two";
+        }
+        throw new Error("not found");
+      },
+      maxLineLength: 20,
+    });
+
+    expect(lines).toEqual(["line one", "line two"]);
+  });
+
+  test("returns empty when discover SKILL.md fetch fails for all candidates", async () => {
+    const lines = await loadPreviewLines({
+      discoverSkill: {
+        label: "Missing Skill",
+        handle: "owner/repo/missing",
+        repo: "owner/repo",
+      },
+      fetchText: async () => {
+        throw new Error("404");
+      },
+    });
+
+    expect(lines).toEqual([]);
+  });
 });

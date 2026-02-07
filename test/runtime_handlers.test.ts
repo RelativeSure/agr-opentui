@@ -14,6 +14,7 @@ function createDeps() {
     renderPreviewModal: 0,
     installSelected: 0,
     installSelectedBulk: 0,
+    refreshPreview: 0,
     togglePinned: 0,
     openRunHistory: 0,
     undoLastAction: 0,
@@ -89,7 +90,9 @@ function createDeps() {
     },
     removeSelectedBulk: async () => {},
     removeSelected: async () => {},
-    refreshPreview: async () => {},
+    refreshPreview: async () => {
+      calls.refreshPreview += 1;
+    },
     runSelected: async () => {},
     cycleTool: () => {},
     addPredefinedSelected: async () => {},
@@ -271,6 +274,19 @@ describe("runtime key handler", () => {
 
     expect(handleKey("f")).toBe(true);
     expect(calls.enterInputMode).toEqual([{ mode: "filter", seed: "" }]);
+  });
+
+  test("discover v opens preview and refreshes content", async () => {
+    const { state, calls, handleKey } = createDeps();
+    state.tabIndex = 1; // Discover tab
+
+    expect(handleKey("v")).toBe(true);
+    await Promise.resolve();
+
+    expect(state.previewOpen).toBe(true);
+    expect(calls.refreshPreview).toBe(1);
+    expect(calls.renderPreviewModal).toBe(1);
+    expect(calls.renderFooter).toBe(1);
   });
 
   test("add input mode blocks global shortcuts while keeping add controls", () => {

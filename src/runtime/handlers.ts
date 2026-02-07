@@ -194,7 +194,7 @@ export function createHandleKey(deps: HandleKeyDeps): (sequence: string) => bool
       return true;
     }
 
-    if (tab === "Skills" && sequence === "v") {
+    if ((tab === "Skills" || tab === "Discover") && sequence === "v") {
       void deps.refreshPreview();
       state.previewOpen = true;
       deps.renderPreviewModal();

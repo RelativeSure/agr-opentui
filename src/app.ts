@@ -416,7 +416,7 @@ function renderPreviewModal(): void {
     previewLines: state.previewAll,
     previewOffset: state.previewOffset,
     pageLines: PREVIEW_LINES,
-    selectedDependency: selectedDependency(),
+    previewTarget: state.previewTarget,
     overlay: previewOverlay,
     title: previewTitle,
     code: previewCode,
@@ -780,9 +780,23 @@ const {
 });
 
 async function refreshPreview(): Promise<void> {
+  const dep = selectedDependency();
+  const discoverSkill = selectedPredefined();
+  const activeTab = getActiveTabTyped();
+  state.previewTarget =
+    activeTab === "Discover" ? (discoverSkill ? getSkillDisplayLabel(discoverSkill) : null) : dep?.identifier ?? null;
   state.previewAll = await loadPreviewLines({
-    dependency: selectedDependency(),
+    dependency: dep,
+    discoverSkill,
+    predefinedSource: state.predefinedSource,
     readText: async (path) => Bun.file(path).text(),
+    fetchText: async (url) => {
+      const res = await fetch(url);
+      if (!res.ok) {
+        throw new Error(`Request failed (${res.status})`);
+      }
+      return res.text();
+    },
     maxLineLength: 200,
   });
   state.previewOffset = 0;
