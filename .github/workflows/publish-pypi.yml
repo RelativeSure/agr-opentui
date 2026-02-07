@@ -42,6 +42,28 @@ jobs:
       create_release: false
     secrets: inherit
 
+  resolve-target:
+    needs: bump-version
+    if: ${{ always() && (needs.bump-version.result == 'success' || needs.bump-version.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    outputs:
+      publish_target: ${{ steps.resolve.outputs.publish_target }}
+    steps:
+      - name: Resolve publish target
+        id: resolve
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "publish_target=pypi" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          target="${{ github.event.inputs.target }}"
+          if [ -z "$target" ]; then
+            target="pypi"
+          fi
+          echo "publish_target=$target" >> "$GITHUB_OUTPUT"
+
   build:
     needs: bump-version
     if: ${{ always() && (needs.bump-version.result == 'success' || needs.bump-version.result == 'skipped') }}
@@ -86,19 +108,8 @@ jobs:
           path: dist/
 
   publish-pypi:
-    if: |
-      needs.build.result == 'success' &&
-      (
-        github.event_name == 'release' ||
-        (
-          github.event_name == 'workflow_dispatch' &&
-          (
-            inputs.target == 'pypi' ||
-            github.event.inputs.target == 'pypi'
-          )
-        )
-      )
-    needs: build
+    if: needs.build.result == 'success' && needs.resolve-target.outputs.publish_target == 'pypi'
+    needs: [build, resolve-target]
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -115,14 +126,8 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
 
   publish-testpypi:
-    if: |
-      needs.build.result == 'success' &&
-      github.event_name == 'workflow_dispatch' &&
-      (
-        inputs.target == 'testpypi' ||
-        github.event.inputs.target == 'testpypi'
-      )
-    needs: build
+    if: needs.build.result == 'success' && needs.resolve-target.outputs.publish_target == 'testpypi'
+    needs: [build, resolve-target]
     runs-on: ubuntu-latest
     permissions:
       id-token: write
