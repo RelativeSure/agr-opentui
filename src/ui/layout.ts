@@ -46,6 +46,10 @@ export function createUiLayout(
   renderer: Awaited<ReturnType<typeof createCliRenderer>>,
   tabCount: number,
 ): UiLayoutRefs {
+  const MODAL_BORDER_ROWS = 2;
+  const modalHeight = (contentRows: number, verticalPadding = 1): number =>
+    contentRows + MODAL_BORDER_ROWS + verticalPadding * 2;
+
   const root = renderer.root;
 
   const layout = new BoxRenderable(renderer, {
@@ -99,7 +103,13 @@ export function createUiLayout(
   const listLines: TextRenderable[] = [];
   const listRows = 17;
   for (let i = 0; i < listRows; i += 1) {
-    const line = new TextRenderable(renderer, { content: "", fg: colors.text, bg: colors.panelAlt });
+    const line = new TextRenderable(renderer, {
+      content: "",
+      fg: colors.text,
+      bg: colors.panelAlt,
+      wrapMode: "none",
+      truncate: true,
+    });
     listLines.push(line);
   }
 
@@ -114,7 +124,7 @@ export function createUiLayout(
   const centerTitle = new TextRenderable(renderer, { content: "DETAILS", fg: colors.highlight });
   const detailLines: TextRenderable[] = [];
   for (let i = 0; i < 12; i += 1) {
-    detailLines.push(new TextRenderable(renderer, { content: "", fg: colors.text }));
+    detailLines.push(new TextRenderable(renderer, { content: "", fg: colors.text, wrapMode: "none", truncate: true }));
   }
 
   const rightPanel = new BoxRenderable(renderer, {
@@ -141,7 +151,7 @@ export function createUiLayout(
   });
   const addModal = new BoxRenderable(renderer, {
     width: 60,
-    height: 5,
+    height: modalHeight(3),
     padding: 1,
     borderStyle: "double",
     borderColor: colors.borderStrong,
@@ -175,7 +185,7 @@ export function createUiLayout(
   });
   const runOptionsModal = new BoxRenderable(renderer, {
     width: 64,
-    height: 7,
+    height: modalHeight(7),
     padding: 1,
     borderStyle: "double",
     borderColor: colors.borderStrong,
@@ -212,7 +222,7 @@ export function createUiLayout(
   });
   const helpModal = new BoxRenderable(renderer, {
     width: 68,
-    height: 9,
+    height: modalHeight(7),
     padding: 1,
     borderStyle: "double",
     borderColor: colors.borderStrong,
@@ -422,7 +432,7 @@ export function createUiLayout(
 
   const footer = new BoxRenderable(renderer, {
     height: 2,
-    padding: 1,
+    padding: 0,
     gap: 2,
     backgroundColor: colors.panelRaised,
   });

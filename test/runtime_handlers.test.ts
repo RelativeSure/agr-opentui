@@ -20,6 +20,7 @@ function createDeps() {
     loadData: 0,
     reloadData: 0,
     applyUpdatesAndSync: 0,
+    exitInputMode: 0,
     scrollPreview: [] as number[],
     enterInputMode: [] as Array<{ mode: "none" | "add" | "prompt" | "args" | "filter"; seed?: string }>,
   };
@@ -76,7 +77,9 @@ function createDeps() {
     enterInputMode: (mode, seed) => {
       calls.enterInputMode.push({ mode, seed });
     },
-    exitInputMode: () => {},
+    exitInputMode: () => {
+      calls.exitInputMode += 1;
+    },
     handleInputChar: () => {},
     installSelectedBulk: async () => {
       calls.installSelectedBulk += 1;
@@ -268,5 +271,17 @@ describe("runtime key handler", () => {
 
     expect(handleKey("f")).toBe(true);
     expect(calls.enterInputMode).toEqual([{ mode: "filter", seed: "" }]);
+  });
+
+  test("add input mode blocks global shortcuts while keeping add controls", () => {
+    const { state, calls, handleKey } = createDeps();
+    state.inputMode = "add";
+
+    expect(handleKey("q")).toBe(false);
+    expect(handleKey("i")).toBe(false);
+    expect(calls.enterInputMode).toHaveLength(0);
+
+    expect(handleKey("\x1b")).toBe(true);
+    expect(calls.exitInputMode).toBe(1);
   });
 });

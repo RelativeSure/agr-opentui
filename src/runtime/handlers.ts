@@ -80,6 +80,10 @@ export function createHandleKey(deps: HandleKeyDeps): (sequence: string) => bool
       return true;
     }
 
+    if (state.inputMode === "add") {
+      return false;
+    }
+
     if (sequence === "\u0003" || sequence === "q") {
       deps.quit();
     }
