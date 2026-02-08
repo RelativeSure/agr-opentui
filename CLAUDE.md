@@ -1,0 +1,1 @@
+/home/rasmus/repos/agr-opentui/AGENTS.md
