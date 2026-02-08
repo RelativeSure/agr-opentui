@@ -4,7 +4,7 @@ requires-python = ">=3.10"
 
 [[package]]
 name = "agr"
-version = "0.7.4"
+version = "0.7.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
@@ -12,9 +12,9 @@ dependencies = [
     { name = "tomlkit" },
     { name = "typer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/75/33/929e5d4f970ea108c348f1ba8da45aa71511d831674f4eb60751331cb09a/agr-0.7.4.tar.gz", hash = "sha256:2070a2edb4dfbf2bc131d1b8303bb3ead72e13945424c21638003363bc5da844", size = 259586, upload-time = "2026-02-06T06:23:13.56Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/bb/12/0b8139e4e6c98c40c9e61e78bf438cfcedb82f9ed7c182ddb80d26489d74/agr-0.7.5.tar.gz", hash = "sha256:ff9e6a2efc831d681d168230fe8f8d03392434e8c68d68f26c36353514a2ddc8", size = 264230, upload-time = "2026-02-07T14:06:41.514Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/50/28/99fb6cb34d1442c774b69c9d0aed43e7e4171242b6ce5fcee8e79dc7043a/agr-0.7.4-py3-none-any.whl", hash = "sha256:c89f1c5730a3d614299e1c8c7e4f91fbbb047c7d464029794fd8828544a5e7f3", size = 53781, upload-time = "2026-02-06T06:23:12.247Z" },
+    { url = "https://files.pythonhosted.org/packages/a4/53/57404036711c38fcc88f9d546740dc15b6074d9848e0e9ccc9f306720ba8/agr-0.7.5-py3-none-any.whl", hash = "sha256:4cb2cf068203c1489810596101bdd831c9811d400b478c83f6951a207d5a9f4a", size = 56520, upload-time = "2026-02-07T14:06:39.99Z" },
 ]
 
 [[package]]
@@ -26,7 +26,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "agr", specifier = ">=0.7.4" }]
+requires-dist = [{ name = "agr", specifier = ">=0.7.5" }]
 
 [[package]]
 name = "anyio"
