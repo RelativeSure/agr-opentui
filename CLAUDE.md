@@ -1,1 +1,1 @@
-/home/rasmus/repos/agr-opentui/AGENTS.md
+Read AGENTS.md.
