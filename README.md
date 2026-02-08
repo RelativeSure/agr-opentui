@@ -4,7 +4,11 @@
 
 An OpenTUI interface for the `agr`/`agrx` CLI: view configured skills, trigger `agr` actions and preview `SKILL.md`
 
-[![PyPI](https://img.shields.io/pypi/v/agr-opentui?color=blue)](https://pypi.org/project/agr-opentui/)
+[![CI](https://img.shields.io/github/actions/workflow/status/RelativeSure/agr-opentui/ci.yml?branch=master&label=ci)](https://github.com/RelativeSure/agr-opentui/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/agr-opentui)](https://pypi.org/project/agr-opentui/)
+[![Python](https://img.shields.io/pypi/pyversions/agr-opentui)](https://pypi.org/project/agr-opentui/)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/agr-opentui)](https://pypi.org/project/agr-opentui/)
+[![GitHub Release](https://img.shields.io/github/v/release/RelativeSure/agr-opentui)](https://github.com/RelativeSure/agr-opentui/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 </div>
