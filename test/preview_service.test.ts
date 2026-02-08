@@ -74,4 +74,24 @@ describe("preview service", () => {
 
     expect(lines).toEqual([]);
   });
+
+  test("uses explicit discover skill metadata when resolving preview url", async () => {
+    let requestedUrl = "";
+    const lines = await loadPreviewLines({
+      discoverSkill: {
+        label: "Incident Triage",
+        handle: "acme/skills/incident-triage",
+        repo: "https://gitlab.com/acme/skills",
+        branch: "release",
+        skillMdPath: "skills/ops/incident-triage/SKILL.md",
+      },
+      fetchText: async (url) => {
+        requestedUrl = url;
+        return "triage";
+      },
+    });
+
+    expect(lines).toEqual(["triage"]);
+    expect(requestedUrl).toBe("https://gitlab.com/acme/skills/-/raw/release/skills/ops/incident-triage/SKILL.md");
+  });
 });

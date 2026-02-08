@@ -58,7 +58,6 @@ export function buildSkillMdUrls(input: {
     tail.replace(/~/g, "/"),
   ]);
   const baseDirs = ["skills", ".claude/skills", ".github/skills", ".codex/skills", ""];
-  const branches = ["main", "master"];
   const paths: string[] = [];
   for (const variant of tailVariants) {
     const trimmed = variant.replace(/^\/+|\/+$/g, "");
@@ -76,16 +75,30 @@ export function buildSkillMdUrls(input: {
   if (!repoInfo) {
     return [];
   }
+
+  const buildUrl = (branch: string, path: string): string => {
+    if (repoInfo.host === "gitlab.com") {
+      return `https://gitlab.com/${repoInfo.path}/-/raw/${branch}/${path}`;
+    }
+    if (repoInfo.host === "bitbucket.org") {
+      return `https://bitbucket.org/${repoInfo.path}/raw/${branch}/${path}`;
+    }
+    return `https://raw.githubusercontent.com/${repoInfo.path}/${branch}/${path}`;
+  };
+
+  if (input.skill.skillMdPath) {
+    const branch = input.skill.branch?.trim() || "main";
+    const explicitPath = input.skill.skillMdPath.trim().replace(/^\/+/, "");
+    return [buildUrl(branch, explicitPath)];
+  }
+
+  const branchCandidates = [input.skill.branch?.trim(), "main", "master"].filter((item): item is string => Boolean(item));
+  const branches = Array.from(new Set(branchCandidates));
+
   const urls: string[] = [];
   for (const branch of branches) {
     for (const path of paths) {
-      if (repoInfo.host === "gitlab.com") {
-        urls.push(`https://gitlab.com/${repoInfo.path}/-/raw/${branch}/${path}`);
-      } else if (repoInfo.host === "bitbucket.org") {
-        urls.push(`https://bitbucket.org/${repoInfo.path}/raw/${branch}/${path}`);
-      } else {
-        urls.push(`https://raw.githubusercontent.com/${repoInfo.path}/${branch}/${path}`);
-      }
+      urls.push(buildUrl(branch, path));
     }
   }
   return urls;

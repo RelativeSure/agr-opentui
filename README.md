@@ -150,6 +150,35 @@ The `Discover` tab is bundled into the compiled binary from this repository's `s
 
 To change the list, update `skills.json` in this repository and rebuild (`make build`).
 
+To avoid repeating repo metadata, `skills.json` can also be a DRY repo-group array like `skills-multi-repo-example.json`:
+- One array item per repository with this schema: `repo`, optional `branch`, `handlePrefix`, and `skills[]`.
+- Each `skills[]` item must include `id` and an explicit relative `path` ending in `/SKILL.md`; `label` is optional.
+- At build time this expands into Discover entries with:
+  `handle = handlePrefix + "/" + id`, preserved `repo`, preserved `label` (defaulting to handle), and explicit `skillMdPath` metadata for preview resolution.
+
+Example:
+
+```json
+[
+  {
+    "repo": "kasperjunge/agent-resources",
+    "branch": "main",
+    "handlePrefix": "kasperjunge",
+    "skills": [
+      {
+        "id": "code-review",
+        "path": "skills/development/workflow/code-review/SKILL.md",
+        "label": "Code Review"
+      }
+    ]
+  }
+]
+```
+
+Migration from legacy `skills.json`:
+- Existing object/array payloads are still supported.
+- To migrate, group skills by repository and replace per-skill `repo` duplication with one repo-group entry.
+
 ## Troubleshooting
 
 - `Missing agr.toml`: run the app from a repo that has `agr.toml`, or create one.

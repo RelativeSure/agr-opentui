@@ -1,15 +1,153 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import type { PredefinedSkill } from "../src/app_logic";
 
-const root = process.cwd();
-const inputPath = join(root, "skills.json");
-const outputPath = join(root, "src/generated/embedded_skills.ts");
+type RepoGroupSkill = {
+  id: string;
+  path: string;
+  label?: string;
+};
 
-const raw = readFileSync(inputPath, "utf-8");
-const parsed = JSON.parse(raw) as unknown;
+type RepoGroup = {
+  repo: string;
+  branch?: string;
+  handlePrefix: string;
+  skills: RepoGroupSkill[];
+};
 
-if (!Array.isArray(parsed) && (!parsed || typeof parsed !== "object")) {
-  throw new Error("skills.json must be an array or object");
+type LegacyPayload =
+  | Array<string | PredefinedSkill>
+  | {
+      skills?: Array<string | PredefinedSkill>;
+      source?: unknown;
+    };
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object";
+}
+
+function cleanValue(value: string): string {
+  return value.trim().replace(/^\/+|\/+$/g, "");
+}
+
+function isRepoGroupCandidate(value: unknown): value is Record<string, unknown> {
+  return isObject(value) && "skills" in value;
+}
+
+function isExplicitSkillMdPath(path: string): boolean {
+  const trimmed = path.trim();
+  if (!trimmed || trimmed.startsWith("/") || trimmed.includes("\\")) {
+    return false;
+  }
+  if (!trimmed.endsWith("/SKILL.md")) {
+    return false;
+  }
+  const parts = trimmed.split("/");
+  return parts.every((part) => part.length > 0 && part !== "." && part !== "..");
+}
+
+function isValidSkillId(id: string): boolean {
+  const trimmed = id.trim();
+  return /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(trimmed);
+}
+
+function validateRepoGroup(input: unknown, index: number): RepoGroup {
+  if (!isObject(input)) {
+    throw new Error(`repo-group[${index}] must be an object`);
+  }
+
+  const repo = typeof input.repo === "string" ? input.repo.trim() : "";
+  if (!repo) {
+    throw new Error(`repo-group[${index}].repo must be a non-empty string`);
+  }
+
+  const handlePrefix = typeof input.handlePrefix === "string" ? cleanValue(input.handlePrefix) : "";
+  if (!handlePrefix) {
+    throw new Error(`repo-group[${index}].handlePrefix must be a non-empty string`);
+  }
+
+  let branch: string | undefined;
+  if (input.branch !== undefined) {
+    if (typeof input.branch !== "string" || !input.branch.trim()) {
+      throw new Error(`repo-group[${index}].branch must be a non-empty string when provided`);
+    }
+    branch = input.branch.trim();
+  }
+
+  if (!Array.isArray(input.skills) || input.skills.length === 0) {
+    throw new Error(`repo-group[${index}].skills must be a non-empty array`);
+  }
+
+  const skills: RepoGroupSkill[] = input.skills.map((rawSkill, skillIndex) => {
+    if (!isObject(rawSkill)) {
+      throw new Error(`repo-group[${index}].skills[${skillIndex}] must be an object`);
+    }
+
+    const id = typeof rawSkill.id === "string" ? rawSkill.id.trim() : "";
+    if (!isValidSkillId(id)) {
+      throw new Error(`repo-group[${index}].skills[${skillIndex}].id must be a slug like code-review`);
+    }
+
+    const path = typeof rawSkill.path === "string" ? rawSkill.path.trim() : "";
+    if (!isExplicitSkillMdPath(path)) {
+      throw new Error(`repo-group[${index}].skills[${skillIndex}].path must be an explicit relative path ending in /SKILL.md`);
+    }
+
+    let label: string | undefined;
+    if (rawSkill.label !== undefined) {
+      if (typeof rawSkill.label !== "string" || !rawSkill.label.trim()) {
+        throw new Error(`repo-group[${index}].skills[${skillIndex}].label must be a non-empty string when provided`);
+      }
+      label = rawSkill.label.trim();
+    }
+
+    return { id, path, label };
+  });
+
+  return { repo, branch, handlePrefix, skills };
+}
+
+function expandRepoGroups(groups: RepoGroup[]): { skills: PredefinedSkill[] } {
+  const seenHandles = new Set<string>();
+  const expanded: PredefinedSkill[] = [];
+
+  for (const group of groups) {
+    for (const skill of group.skills) {
+      const handle = `${group.handlePrefix}/${skill.id}`;
+      const handleKey = handle.toLowerCase();
+      if (seenHandles.has(handleKey)) {
+        throw new Error(`duplicate generated handle: ${handle}`);
+      }
+      seenHandles.add(handleKey);
+      expanded.push({
+        label: skill.label ?? handle,
+        handle,
+        repo: group.repo,
+        branch: group.branch,
+        skillMdPath: skill.path,
+      });
+    }
+  }
+
+  return { skills: expanded };
+}
+
+export function resolveEmbeddedPayload(parsed: unknown): LegacyPayload {
+  if (!Array.isArray(parsed) && (!parsed || typeof parsed !== "object")) {
+    throw new Error("skills.json must be an array or object");
+  }
+
+  if (!Array.isArray(parsed)) {
+    return parsed as LegacyPayload;
+  }
+
+  const hasRepoGroupShape = parsed.some((item) => isRepoGroupCandidate(item));
+  if (!hasRepoGroupShape) {
+    return parsed as LegacyPayload;
+  }
+
+  const groups = parsed.map((item, index) => validateRepoGroup(item, index));
+  return expandRepoGroups(groups);
 }
 
 const banner = [
@@ -19,5 +157,13 @@ const banner = [
   "export const EMBEDDED_SKILLS_PAYLOAD = ",
 ].join("\n");
 
-const content = `${banner}${JSON.stringify(parsed, null, 2)} as const;\n`;
-writeFileSync(outputPath, content, "utf-8");
+if (import.meta.main) {
+  const root = process.cwd();
+  const inputPath = join(root, "skills.json");
+  const outputPath = join(root, "src/generated/embedded_skills.ts");
+  const raw = readFileSync(inputPath, "utf-8");
+  const parsed = JSON.parse(raw) as unknown;
+  const payload = resolveEmbeddedPayload(parsed);
+  const content = `${banner}${JSON.stringify(payload, null, 2)} as const;\n`;
+  writeFileSync(outputPath, content, "utf-8");
+}

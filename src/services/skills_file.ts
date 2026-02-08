@@ -112,6 +112,12 @@ export function writeSkillsFileToDisk(input: {
       if (skill.repo) {
         entry.repo = skill.repo;
       }
+      if (skill.branch) {
+        entry.branch = skill.branch;
+      }
+      if (skill.skillMdPath) {
+        entry.skillMdPath = skill.skillMdPath;
+      }
       return entry;
     }),
   };

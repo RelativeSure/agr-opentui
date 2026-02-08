@@ -1,0 +1,34 @@
+[
+  {
+    "repo": "kasperjunge/agent-resources",
+    "branch": "main",
+    "handlePrefix": "kasperjunge",
+    "skills": [
+      {
+        "id": "code-review",
+        "path": "skills/development/workflow/code-review/SKILL.md",
+        "label": "Code Review"
+      },
+      {
+        "id": "create-plan",
+        "path": "skills/development/workflow/create-plan/SKILL.md"
+      }
+    ]
+  },
+  {
+    "repo": "https://gitlab.com/acme/skills",
+    "branch": "main",
+    "handlePrefix": "acme/skills",
+    "skills": [
+      {
+        "id": "incident-triage",
+        "path": "skills/ops/incident-triage/SKILL.md"
+      },
+      {
+        "id": "oncall-handoff",
+        "path": "skills/ops/oncall-handoff/SKILL.md",
+        "label": "On-call Handoff"
+      }
+    ]
+  }
+]

@@ -12,6 +12,8 @@ export type PredefinedSkill = {
   label: string;
   handle: string;
   repo?: string;
+  branch?: string;
+  skillMdPath?: string;
 };
 
 export type BridgeData = {

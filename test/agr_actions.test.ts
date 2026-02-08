@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { Dependency } from "../src/app_logic";
-import { installSelectedAction, installSelectedBulkAction } from "../src/services/agr_actions";
+import { addPredefinedSelectedAction, installSelectedAction, installSelectedBulkAction } from "../src/services/agr_actions";
 import { createInitialState } from "../src/state";
 
 function sampleDependency(): Dependency {
@@ -119,5 +119,46 @@ describe("agr action service", () => {
     ]);
     expect(loadCount).toBe(1);
     expect(verified).toEqual([["org/repo/one", "org/repo/two"]]);
+  });
+
+  test("addPredefinedSelectedAction installs normalized handle even when repo metadata exists", async () => {
+    const state = createInitialState();
+    state.predefined = [
+      {
+        label: "Deploy Skill",
+        handle: "team/automation/deploy",
+        repo: "https://gitlab.com/team/automation",
+      },
+    ];
+
+    const commandCalls: string[][] = [];
+
+    await addPredefinedSelectedAction({
+      state,
+      selectedPredefined: () => state.predefined[0] ?? null,
+      getSkillDisplayLabel: (skill) => skill.label,
+      normalizeHandleForAgr: (handle) => handle,
+      runCommand: async (args) => {
+        commandCalls.push(args);
+        return { exitCode: 0, stdout: "", stderr: "" };
+      },
+      loadData: async () => {},
+      showToast: () => {},
+      setStatus: () => {},
+      renderList: () => {},
+      renderDetails: () => {},
+      renderActions: () => {},
+      verifyAgrTomlContains: () => {},
+      openVerify: () => {},
+      logEvent: () => {},
+      handleVariants: (handle) => [handle],
+      deps: {
+        cwd: () => "/repo",
+        existsSync: () => false,
+        readFileSync: () => "",
+      },
+    });
+
+    expect(commandCalls[0]).toEqual(["uv", "run", "agr", "add", "team/automation/deploy"]);
   });
 });

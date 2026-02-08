@@ -73,7 +73,15 @@ describe("skills file service", () => {
     writeSkillsFileToDisk({
       cwd: "/repo",
       predefinedFormat: "object",
-      skills: [{ label: "One", handle: "org/repo/one", repo: "org/repo" }],
+      skills: [
+        {
+          label: "One",
+          handle: "org/repo/one",
+          repo: "org/repo",
+          branch: "main",
+          skillMdPath: "skills/path/one/SKILL.md",
+        },
+      ],
       source: { repo: "org/repo", path: "skills.json" },
       normalizeSource: (source) => ({ format: "skills-json", ...(source ?? {}) }),
       writeFileSync: (_path, data) => {
@@ -84,5 +92,51 @@ describe("skills file service", () => {
     const parsed = JSON.parse(written);
     expect(parsed.source.repo).toBe("org/repo");
     expect(parsed.skills[0].handle).toBe("org/repo/one");
+    expect(parsed.skills[0].branch).toBe("main");
+    expect(parsed.skills[0].skillMdPath).toBe("skills/path/one/SKILL.md");
+  });
+
+  test("loads embedded multi-repo skill entries", () => {
+    const result = loadPredefinedFromDisk({
+      cwd: "/repo",
+      existsSync: () => false,
+      readFileSync: () => "",
+      normalizeSkills: (items) =>
+        items.map((item) => {
+          if (typeof item === "string") {
+            return { label: item, handle: item };
+          }
+          return {
+            label: item.label,
+            handle: item.handle,
+            repo: item.repo,
+            branch: item.branch,
+            skillMdPath: item.skillMdPath,
+          };
+        }),
+      normalizeSource: (source) => source ?? { format: "skills-json" },
+      embedded: {
+        payload: {
+          skills: [
+            {
+              label: "Code Review",
+              handle: "acme/platform-skills/code-review",
+              repo: "acme/platform-skills",
+              branch: "main",
+              skillMdPath: "skills/development/workflow/code-review/SKILL.md",
+            },
+            { label: "Deploy Runbook", handle: "team/automation/deploy-runbook", repo: "https://gitlab.com/team/automation" },
+          ],
+        },
+      },
+    });
+
+    expect(result.predefinedError).toBeNull();
+    expect(result.predefined.map((item) => item.handle)).toEqual([
+      "acme/platform-skills/code-review",
+      "team/automation/deploy-runbook",
+    ]);
+    expect(result.predefined[0]?.branch).toBe("main");
+    expect(result.predefined[0]?.skillMdPath).toBe("skills/development/workflow/code-review/SKILL.md");
   });
 });

@@ -84,7 +84,7 @@ export async function addPredefinedSelectedAction(input: {
     return;
   }
   input.logEvent(`Discover install requested: ${skill.handle}`);
-  const target = skill.repo ?? input.normalizeHandleForAgr(skill.handle);
+  const target = input.normalizeHandleForAgr(skill.handle);
   input.setStatus(`Installing: ${target}`);
   let result = await input.runCommand(["uv", "run", "agr", "add", target]);
   if (result.exitCode !== 0 && commandReportedExists(`${result.stdout}\n${result.stderr}`)) {

@@ -13,14 +13,17 @@ export function normalizeSkills(items: Array<string | PredefinedSkill>): Predefi
       }
       normalized.push({ label: handle, handle });
     } else if (item && typeof item === "object") {
-      const maybe = item as { label?: unknown; handle?: unknown; repo?: unknown };
+      const maybe = item as { label?: unknown; handle?: unknown; repo?: unknown; branch?: unknown; skillMdPath?: unknown };
       const handle = typeof maybe.handle === "string" ? maybe.handle.trim() : "";
       if (!handle) {
         continue;
       }
       const label = typeof maybe.label === "string" && maybe.label.trim().length > 0 ? maybe.label.trim() : handle;
       const repo = typeof maybe.repo === "string" && maybe.repo.trim().length > 0 ? maybe.repo.trim() : undefined;
-      normalized.push({ label, handle, repo });
+      const branch = typeof maybe.branch === "string" && maybe.branch.trim().length > 0 ? maybe.branch.trim() : undefined;
+      const skillMdPath =
+        typeof maybe.skillMdPath === "string" && maybe.skillMdPath.trim().length > 0 ? maybe.skillMdPath.trim() : undefined;
+      normalized.push({ label, handle, repo, branch, skillMdPath });
     }
   }
   return normalized;

@@ -15,6 +15,13 @@ describe("skills source service", () => {
     const result = normalizeSkills([
       " org/repo/one ",
       { label: "Two", handle: " org/repo/two ", repo: " org/repo " },
+      {
+        label: "Three",
+        handle: " org/repo/three ",
+        repo: " org/repo ",
+        branch: " main ",
+        skillMdPath: " skills/path/SKILL.md ",
+      },
       { label: "", handle: "org/repo/three" },
       { label: "bad", handle: "" } as never,
     ]);
@@ -22,6 +29,13 @@ describe("skills source service", () => {
     expect(result).toEqual([
       { label: "org/repo/one", handle: "org/repo/one" },
       { label: "Two", handle: "org/repo/two", repo: "org/repo" },
+      {
+        label: "Three",
+        handle: "org/repo/three",
+        repo: "org/repo",
+        branch: "main",
+        skillMdPath: "skills/path/SKILL.md",
+      },
       { label: "org/repo/three", handle: "org/repo/three" },
     ]);
   });

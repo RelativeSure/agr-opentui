@@ -31,6 +31,20 @@ describe("discover labels service", () => {
     expect(urls.some((u) => u.includes("raw.githubusercontent.com/kasperjunge/agent-resources/main/skills/development/workflow/code-review/SKILL.md"))).toBe(true);
   });
 
+  test("uses explicit skillMdPath and branch when provided", () => {
+    const urls = buildSkillMdUrls({
+      skill: {
+        label: "S",
+        handle: "acme/skills/incident-triage",
+        repo: "https://gitlab.com/acme/skills",
+        branch: "release",
+        skillMdPath: "skills/ops/incident-triage/SKILL.md",
+      },
+      predefinedSource: null,
+    });
+    expect(urls).toEqual(["https://gitlab.com/acme/skills/-/raw/release/skills/ops/incident-triage/SKILL.md"]);
+  });
+
   test("resolves label from fetched skill markdown", async () => {
     const cache: Record<string, string> = {};
     const pending = new Set<string>();
