@@ -21,7 +21,7 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-  "agr>=0.8.2",
+  "agr>=0.8.4",
 ]
 
 [project.scripts]
